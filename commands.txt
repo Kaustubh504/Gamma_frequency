@@ -1,0 +1,24 @@
+Run commands
+Baseline (no Q-filter) — run this first:
+bashcd src/gamma
+
+python main.py \
+  --model resnet18 \
+  --num_pe 1024 \
+  --epochs 20 \
+  --num_pop 20 \
+  --fitness1 latency \
+  --fitness2 energy \
+  --num_layer 1 \
+  --outdir outdir_baseline
+With Q-filter — run after baseline:
+bashpython main.py \
+  --model resnet18 \
+  --num_pe 1024 \
+  --epochs 20 \
+  --num_pop 20 \
+  --fitness1 latency \
+  --fitness2 energy \
+  --num_layer 1 \
+  --outdir outdir_qfilter \
+  --use_qfilter

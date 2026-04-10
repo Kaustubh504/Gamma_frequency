@@ -3,58 +3,48 @@ q_filter.py
 ============
 Q-Learning filter for GAMMA's genetic algorithm.
 
-Maintains a Q-table keyed on genome state = (sp_dim, loop_order_tuple).
-Before MAESTRO is called for a candidate genome, the filter decides:
-    action=1 → evaluate (call MAESTRO)
-    action=0 → skip    (return cached -Inf, no MAESTRO call)
-
-Update rule (no next-state, no gamma):
-    Q(s, 1) ← Q(s, 1) + α * [reward - Q(s, 1)]
-
-Decision rule (ε-greedy):
-    with prob ε     → always evaluate (explore)
-    with prob (1-ε) → follow Q-table  (exploit)
-        if Q(s,1) > threshold → evaluate
-        else                  → skip
-
-The Q-table persists across layers and generations within one GAMMA run.
-It can also be saved/loaded across runs for warm-starting.
+Maintains separate Q-tables for evaluation, crossover, growth, and aging phases.
+Uses dynamic table sizing (OrderedDict as LRU cache) and parameterized alpha/gamma.
 """
 
 import random
 import json
 import os
-
+from collections import OrderedDict
 
 class QFilter:
     def __init__(
         self,
         alpha=0.1,          # learning rate
-        epsilon=1.0,        # initial exploration rate (1.0 = evaluate everything at first)
+        gamma_param=0.9,    # Discount factor (gamma)
+        table_size=10000,   # Maximum size of each Q-table
+        epsilon=1.0,        # initial exploration rate (1.0 = explore everything at first)
         epsilon_decay=0.9,  # multiply epsilon by this after each generation
         epsilon_min=0.10,   # floor for epsilon (never go fully greedy)
-        skip_threshold=0.0, # Q(s,1) must exceed this to evaluate; below = skip
+        skip_threshold=0.0, # Q(s,1) must exceed this to evaluate/proceed
         q_table_path=None,  # optional path to save/load Q-table across runs
     ):
         self.alpha = alpha
+        self.gamma_param = gamma_param
+        self.table_size = table_size
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
         self.skip_threshold = skip_threshold
         self.q_table_path = q_table_path
 
-        # Q-table: { state_key : float }
-        # state_key = string repr of (sp_dim, loop_order_tuple)
-        # Q[state] = Q(s, action=1) — value of evaluating this genome type
-        # Q(s, action=0) is always 0 by definition (skip = no information)
-        self.q_table = {}
+        # Separate tables for different phases using OrderedDict for sizing
+        self.q_table_eval = OrderedDict()
+        self.q_table_cross = OrderedDict()
+        self.q_table_growth = OrderedDict()
+        self.q_table_aging = OrderedDict()
 
         # Stats per generation for logging
-        self.gen_stats = []   # list of dicts: {gen, evaluated, skipped, epsilon}
+        self.gen_stats = []
 
         if q_table_path and os.path.exists(q_table_path):
             self.load(q_table_path)
-            print(f"[QFilter] Loaded Q-table from {q_table_path} ({len(self.q_table)} states)")
+            print(f"[QFilter] Loaded Q-tables from {q_table_path}")
 
     # ------------------------------------------------------------------
     # State extraction
@@ -62,106 +52,84 @@ class QFilter:
     def extract_state(self, indv):
         """
         Extract a compact hashable state from a genome individual.
-
-        State = (sp_dim_L1, loop_order_L1)
-        Example: ("K", ("S", "R", "K", "Y", "X", "C"))
-
-        We use only L1 (the first 7 genes) because:
-        - It captures the dominant parallelization dimension
-        - It captures the loop ordering which most affects data reuse
-        - Tile sizes are intentionally excluded — same order/sp with
-          different tile sizes should share Q-table entries (generalize)
-        - Keeps state space small and tractable
+        State = sp_dim|loop_order
         """
         if len(indv) < 7:
-            return ("UNKNOWN", ())
-        sp_dim = indv[0][0]                          # e.g. "K"
-        loop_order = tuple(indv[i][0] for i in range(1, 7))  # e.g. ("S","R","K","Y","X","C")
-        return (sp_dim, loop_order)
-
-    def _state_key(self, state):
-        """Convert state tuple to a JSON-serializable string key."""
-        sp_dim, loop_order = state
+            return "UNKNOWN|()"
+        sp_dim = indv[0][0]                          
+        loop_order = tuple(indv[i][0] for i in range(1, 7)) 
         return f"{sp_dim}|{''.join(loop_order)}"
 
     # ------------------------------------------------------------------
     # Core Q-table operations
     # ------------------------------------------------------------------
-    def get_q_value(self, state):
-        """Return Q(s, action=1). Default = 0.0 (neutral, unknown state)."""
-        key = self._state_key(state)
-        return self.q_table.get(key, 0.0)
+    def _enforce_table_size(self, table):
+        """Maintains dynamic table size by popping oldest items if exceeded."""
+        while len(table) > self.table_size:
+            table.popitem(last=False)
 
-    def update(self, state, reward):
+    def get_q_value(self, state_key, table_type="eval"):
+        """Return Q(s, action=1) for a specific phase."""
+        table = getattr(self, f"q_table_{table_type}")
+        return table.get(state_key, 0.0)
+
+    def update(self, state_key, reward, next_state_key=None, table_type="eval"):
         """
-        Update Q(s, action=1) after receiving a real MAESTRO reward.
-
-        Q(s,1) ← Q(s,1) + α * [reward - Q(s,1)]
-
-        This is a running exponential moving average of observed rewards
-        for this genome state. No γ because evaluation is one-shot.
-
-        Args:
-            state:  extracted state tuple
-            reward: float — fitness1 value from MAESTRO,
-                    or a large negative number if MAESTRO rejected it
+        Updates the specified Q-table using the Q-learning equation.
+        Q(s,a) = Q(s,a) + alpha * (R + gamma * max(Q(s',a)) - Q(s,a))
         """
-        key = self._state_key(state)
-        old_q = self.q_table.get(key, 0.0)
-        new_q = old_q + self.alpha * (reward - old_q)
-        self.q_table[key] = new_q
+        table = getattr(self, f"q_table_{table_type}")
+        old_q = table.get(state_key, 0.0)
+        
+        # Calculate max Q value for next state if it exists
+        next_q = table.get(next_state_key, 0.0) if next_state_key else 0.0
+        
+        # Apply standard Q-Learning formula
+        new_q = old_q + self.alpha * (reward + (self.gamma_param * next_q) - old_q)
+        
+        # Update table and mark as recently used (for LRU behavior)
+        if state_key in table:
+            del table[state_key]
+        table[state_key] = new_q
+        
+        self._enforce_table_size(table)
 
     # ------------------------------------------------------------------
-    # Decision: should we evaluate this genome?
+    # Decision: should we proceed with this operation?
     # ------------------------------------------------------------------
-    def should_evaluate(self, indv):
+    def should_proceed(self, indv, table_type="eval"):
         """
-        ε-greedy decision for one candidate genome.
-
-        Returns:
-            True  → call MAESTRO (evaluate)
-            False → skip (don't call MAESTRO)
-
-        Logic:
-            roll = random float in [0, 1)
-            if roll < ε:       always evaluate (explore)
-            else:
-                q = Q(s, 1)
-                if q > threshold:  evaluate (exploit — known-good region)
-                else:              skip     (exploit — known-bad region)
+        ε-greedy decision for a candidate genome for a specific phase.
+        Returns: True to execute the phase, False to skip.
         """
         if random.random() < self.epsilon:
-            return True   # explore: always evaluate
+            return True   # explore
 
-        state = self.extract_state(indv)
-        q_val = self.get_q_value(state)
+        state_key = self.extract_state(indv)
+        q_val = self.get_q_value(state_key, table_type)
         return q_val > self.skip_threshold   # exploit Q-table
+
+    def should_evaluate(self, indv):
+        """Alias for backward compatibility with the main evaluation loop."""
+        return self.should_proceed(indv, table_type="eval")
 
     # ------------------------------------------------------------------
     # After each generation: decay epsilon, log stats
     # ------------------------------------------------------------------
     def end_of_generation(self, gen, n_evaluated, n_skipped):
-        """
-        Call this once per generation after all evaluations are done.
-        Decays epsilon and logs stats.
-
-        Args:
-            gen:         generation index (0-based)
-            n_evaluated: how many genomes were actually sent to MAESTRO
-            n_skipped:   how many genomes were filtered out by Q-table
-        """
+        """Decays epsilon and logs stats at the end of the generation."""
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         stat = {
             "gen":        gen + 1,
             "evaluated":  n_evaluated,
             "skipped":    n_skipped,
             "epsilon":    round(self.epsilon, 4),
-            "q_states":   len(self.q_table),
+            "q_states":   len(self.q_table_eval), 
         }
         self.gen_stats.append(stat)
         print(
             f"[QFilter] Gen {gen+1}: evaluated={n_evaluated}, skipped={n_skipped}, "
-            f"ε={self.epsilon:.3f}, Q-states known={len(self.q_table)}"
+            f"ε={self.epsilon:.3f}, Eval Q-states={len(self.q_table_eval)}"
         )
 
     # ------------------------------------------------------------------
@@ -171,13 +139,32 @@ class QFilter:
         path = path or self.q_table_path
         if path is None:
             return
+        
+        # Combine all tables for saving into one JSON
+        save_data = {
+            "eval": list(self.q_table_eval.items()),
+            "cross": list(self.q_table_cross.items()),
+            "growth": list(self.q_table_growth.items()),
+            "aging": list(self.q_table_aging.items())
+        }
+        
         with open(path, "w") as f:
-            json.dump(self.q_table, f, indent=2)
-        print(f"[QFilter] Q-table saved → {path} ({len(self.q_table)} states)")
+            json.dump(save_data, f, indent=2)
+        print(f"[QFilter] Q-tables saved → {path} (Eval states: {len(self.q_table_eval)})")
 
     def load(self, path):
         with open(path, "r") as f:
-            self.q_table = json.load(f)
+            save_data = json.load(f)
+            
+        # Handle old format (single dict) vs new format (dict of dicts) gracefully
+        if "eval" in save_data:
+            self.q_table_eval = OrderedDict(save_data.get("eval", []))
+            self.q_table_cross = OrderedDict(save_data.get("cross", []))
+            self.q_table_growth = OrderedDict(save_data.get("growth", []))
+            self.q_table_aging = OrderedDict(save_data.get("aging", []))
+        else:
+            # Legacy load for older JSON files
+            self.q_table_eval = OrderedDict(save_data.items())
 
     # ------------------------------------------------------------------
     # Summary after full run
@@ -195,12 +182,16 @@ class QFilter:
         print(f"  Total MAESTRO calls        : {total_eval}")
         print(f"  Total skipped by Q-filter  : {total_skip}  ({skip_pct:.1f}%)")
         print(f"  Final ε                    : {self.epsilon:.4f}")
-        print(f"  Unique states in Q-table   : {len(self.q_table)}")
+        print(f"  Eval States Known          : {len(self.q_table_eval)}")
+        print(f"  Crossover States Known     : {len(self.q_table_cross)}")
+        print(f"  Growth States Known        : {len(self.q_table_growth)}")
+        print(f"  Aging States Known         : {len(self.q_table_aging)}")
         print("="*60)
-        # Top 5 best states
-        if self.q_table:
-            sorted_states = sorted(self.q_table.items(), key=lambda x: x[1], reverse=True)
-            print("  Top 5 genome states by Q-value:")
+        
+        # Top 5 best states in Eval table
+        if self.q_table_eval:
+            sorted_states = sorted(self.q_table_eval.items(), key=lambda x: x[1], reverse=True)
+            print("  Top 5 genome states by Q-value (Eval Phase):")
             for k, v in sorted_states[:5]:
                 print(f"    {k:30s}  Q={v:.2f}")
         print("="*60 + "\n")

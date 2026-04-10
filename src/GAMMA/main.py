@@ -33,7 +33,17 @@ if __name__ == "__main__":
 
     parser.add_argument('--fixedCluster', type=int, default=0)
     parser.add_argument('--log_level', type=int, default=1)
-
+    #
+# 🔥 Q-LEARNING PARAMETERS
+    parser.add_argument('--q_table_size', type=int, default=10000,
+                        help='Maximum size of the Q-table')
+    parser.add_argument('--q_alpha', type=float, default=0.1,
+                        help='Learning rate (alpha) for Q-learning')
+    parser.add_argument('--q_gamma', type=float, default=0.9,
+                        help='Discount factor (gamma) for Q-learning')
+    parser.add_argument('--epsilon_decay', type=float, default=0.90,
+                        help='Decay rate for epsilon-greedy exploration')
+    #
     parser.add_argument('--costmodel_cstr', type=str, default='maestro_cstr')
     parser.add_argument('--area_budget', type=float, default=-1)
     parser.add_argument('--pe_limit', type=int, default=-1)

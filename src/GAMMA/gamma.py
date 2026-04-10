@@ -8,6 +8,7 @@ from multiprocessing import cpu_count
 from functools import reduce
 from collections import defaultdict
 from math import ceil
+# from Gamma_frequency.src.GAMMA.q_filter_old import QFilter
 from q_filter import QFilter
 m_type_dicts = {0:"CONV", 1:"CONV", 2:"DSCONV", 3:"CONV"}
 CONVtype_dicts = {0:"FC", 1:"CONV",2:"DSCONV", 3:"GEMM"}
@@ -424,32 +425,120 @@ class GAMMA(object):
                     swap_id = np.random.randint(1, 1+num_free_order+1, (2,)) + sel_cluster * 7
                 pop[idx][swap_id[0]], pop[idx][swap_id[1]] = pop[idx][swap_id[1]], pop[idx][swap_id[0]]
 
+    # def crossover_tile(self, parents, pop, alpha=0.5):
+    #     if len(parents) ==1:
+    #         for idx in range(len(pop)):
+    #             pop[idx] = copy.deepcopy(parents[0])
+    #     else:
+    #         for idx in range(0,len(pop),2):
+    #             pick_range = np.random.permutation(np.arange(0, len(parents)))
+    #             dad, mom = parents[pick_range[0]], parents[pick_range[1]]
+    #             # dad, mom = parents[random.randint(0, len(parents)-1)], parents[random.randint(0, len(parents)-1)]
+    #             dad = copy.deepcopy(dad)
+    #             mom = copy.deepcopy(mom)
+    #             length = min(len(dad), len(mom))
+    #             if random.random() < alpha:
+    #                 cross_point = random.choice(["K", "C", "Y", "X", "R", "S"])
+    #                 for k in range(0, length, 7):
+    #                     for i in range(k+1, k+7):
+    #                         d, d_sz = dad[i]
+    #                         if d== cross_point:
+    #                             dad_sz = d_sz
+    #                             dad_idx = i
+    #                         d, d_sz = mom[i]
+    #                         if d == cross_point:
+    #                             mom_sz = d_sz
+    #                             mom_idx = i
+    #                     dad[dad_idx][1] = mom_sz
+    #                     mom[mom_idx][1] = dad_sz
+    #             pop[idx] = dad
+    #             if idx + 1 < len(pop):
+    #                 pop[idx+1] = mom
     def crossover_tile(self, parents, pop, alpha=0.5):
-        if len(parents) ==1:
+        if len(parents) == 1:
             for idx in range(len(pop)):
                 pop[idx] = copy.deepcopy(parents[0])
         else:
-            for idx in range(0,len(pop),2):
+            for idx in range(0, len(pop), 2):
                 pick_range = np.random.permutation(np.arange(0, len(parents)))
                 dad, mom = parents[pick_range[0]], parents[pick_range[1]]
-                # dad, mom = parents[random.randint(0, len(parents)-1)], parents[random.randint(0, len(parents)-1)]
                 dad = copy.deepcopy(dad)
                 mom = copy.deepcopy(mom)
                 length = min(len(dad), len(mom))
-                if random.random() < alpha:
-                    cross_point = random.choice(["K", "C", "Y", "X", "R", "S"])
+                
+                # Q-Filter Check for Crossover Phase
+                proceed_cross = True
+                if getattr(self, 'q_filter', None) is not None:
+                    proceed_cross = self.q_filter.should_proceed(dad, table_type="cross")
+
+                # if proceed_cross and random.random() < alpha and length > 1:
+                #     # SAFE RANDOM SPLIT: Split by logical dimensions to prevent structure corruption
+                #     all_dims = ["K", "C", "Y", "X", "R", "S"]
+                #     split_point = random.randint(1, len(all_dims) - 1)
+                #     dims_to_swap = all_dims[split_point:]
+                    
+                #     for k in range(0, length, 7):
+                #         for dim_to_swap in dims_to_swap:
+                #             dad_idx, mom_idx = -1, -1
+                #             dad_sz, mom_sz = 0, 0
+                            
+                #             # Find where this dimension is in dad
+                #             for i in range(k+1, k+7):
+                #                 if i < len(dad) and dad[i][0] == dim_to_swap:
+                #                     dad_idx = i
+                #                     dad_sz = dad[i][1]
+                #                     break
+                            
+                #             # Find where this dimension is in mom
+                #             for i in range(k+1, k+7):
+                #                 if i < len(mom) and mom[i][0] == dim_to_swap:
+                #                     mom_idx = i
+                #                     mom_sz = mom[i][1]
+                #                     break
+                                    
+                #             # Swap values safely if found in both
+                #             if dad_idx != -1 and mom_idx != -1:
+                #                 dad[dad_idx][1] = mom_sz
+                #                 mom[mom_idx][1] = dad_sz
+                if proceed_cross and random.random() < alpha and length > 1:
+                    if getattr(self, 'q_filter', None) is not None:
+                        dad_state = self.q_filter.extract_state(dad)
+                        mom_state = self.q_filter.extract_state(mom)
+                        
+                    # SAFE RANDOM SPLIT: Split by logical dimensions to prevent structure corruption
+                    all_dims = ["K", "C", "Y", "X", "R", "S"]
+                    split_point = random.randint(1, len(all_dims) - 1)
+                    dims_to_swap = all_dims[split_point:]
+                    
                     for k in range(0, length, 7):
-                        for i in range(k+1, k+7):
-                            d, d_sz = dad[i]
-                            if d== cross_point:
-                                dad_sz = d_sz
-                                dad_idx = i
-                            d, d_sz = mom[i]
-                            if d == cross_point:
-                                mom_sz = d_sz
-                                mom_idx = i
-                        dad[dad_idx][1] = mom_sz
-                        mom[mom_idx][1] = dad_sz
+                        for dim_to_swap in dims_to_swap:
+                            dad_idx, mom_idx = -1, -1
+                            dad_sz, mom_sz = 0, 0
+                            
+                            # Find where this dimension is in dad
+                            for i in range(k+1, k+7):
+                                if i < len(dad) and dad[i][0] == dim_to_swap:
+                                    dad_idx = i
+                                    dad_sz = dad[i][1]
+                                    break
+                            
+                            # Find where this dimension is in mom
+                            for i in range(k+1, k+7):
+                                if i < len(mom) and mom[i][0] == dim_to_swap:
+                                    mom_idx = i
+                                    mom_sz = mom[i][1]
+                                    break
+                                    
+                            # Swap values safely if found in both
+                            if dad_idx != -1 and mom_idx != -1:
+                                dad[dad_idx][1] = mom_sz
+                                mom[mom_idx][1] = dad_sz
+
+                    # Tag the offspring with their lineage
+                    if getattr(self, 'q_filter', None) is not None:
+                        self.generation_lineage[str(dad)] = {'type': 'cross', 'parent': dad_state}
+                        self.generation_lineage[str(mom)] = {'type': 'cross', 'parent': mom_state}
+
                 pop[idx] = dad
                 if idx + 1 < len(pop):
                     pop[idx+1] = mom
@@ -502,23 +591,71 @@ class GAMMA(object):
             ind = new_ind
         return ind
 
+    # def born_cluster(self, pop, alpha=0.1):
+    #     max_count = len(pop)
+    #     while max_count > 0:
+    #         max_count -= 1
+    #         if random.random() < alpha:
+    #             idx = random.randint(0, len(pop) - 1)
+    #             ind = self.born_cluster_ind(pop[idx])
+    #             pop[idx] = ind
     def born_cluster(self, pop, alpha=0.1):
         max_count = len(pop)
         while max_count > 0:
             max_count -= 1
-            if random.random() < alpha:
-                idx = random.randint(0, len(pop) - 1)
+            idx = random.randint(0, len(pop) - 1)
+            
+            # Q-Filter Check for Growth Phase
+            proceed_growth = True
+            if self.q_filter is not None:
+                proceed_growth = self.q_filter.should_proceed(pop[idx], table_type="growth")
+
+            # if proceed_growth and random.random() < alpha:
+            #     ind = self.born_cluster_ind(pop[idx])
+            #     pop[idx] = ind
+            if proceed_growth and random.random() < alpha:
+                if self.q_filter is not None:
+                    old_state = self.q_filter.extract_state(pop[idx])
+                    
                 ind = self.born_cluster_ind(pop[idx])
                 pop[idx] = ind
+                
+                # Tag the mutated genome
+                if self.q_filter is not None:
+                    self.generation_lineage[str(ind)] = {'type': 'growth', 'parent': old_state}
 
+    # def kill_cluster(self, pop, alpha=0.5):
+    #     max_count = len(pop)
+    #     while max_count > 0:
+    #         max_count -= 1
+    #         if random.random() < alpha:
+    #             idx = random.randint(0, len(pop) - 1)
+    #             if (len(pop[idx]))//7>self.slevel_min:
+    #                 pop[idx] = pop[idx][:-7]
     def kill_cluster(self, pop, alpha=0.5):
         max_count = len(pop)
         while max_count > 0:
             max_count -= 1
-            if random.random() < alpha:
-                idx = random.randint(0, len(pop) - 1)
-                if (len(pop[idx]))//7>self.slevel_min:
+            idx = random.randint(0, len(pop) - 1)
+            
+            # Q-Filter Check for Aging Phase
+            proceed_aging = True
+            if self.q_filter is not None:
+                proceed_aging = self.q_filter.should_proceed(pop[idx], table_type="aging")
+
+            # if proceed_aging and random.random() < alpha:
+            #     if (len(pop[idx])) // 7 > self.slevel_min:
+            #         pop[idx] = pop[idx][:-7]
+            if proceed_aging and random.random() < alpha:
+                if (len(pop[idx])) // 7 > self.slevel_min:
+                    if self.q_filter is not None:
+                        old_state = self.q_filter.extract_state(pop[idx])
+                        
                     pop[idx] = pop[idx][:-7]
+                    
+                    # Tag the pruned genome
+                    if self.q_filter is not None:
+                        self.generation_lineage[str(pop[idx])] = {'type': 'aging', 'parent': old_state}
 
     def scan_indv(self,indv):
         last_cluster_dict=defaultdict(str)
@@ -731,10 +868,26 @@ class GAMMA(object):
             # ── Q-Filter update: only update for genomes that were actually
             # evaluated (evaluate_mask[i] == True). Skipped genomes were
             # assigned -Inf synthetically and must NOT pollute the Q-table.
+            # if self.q_filter is not None and evaluate_mask[i]:
+            #     q_reward = reward[0] if reward[0] != float("-Inf") else -1e6
+            #     state = self.q_filter.extract_state(indv)
+            #     self.q_filter.update(state, q_reward)
+            # ── Q-Filter update: only update for genomes that were actually
+            # evaluated (evaluate_mask[i] == True). Skipped genomes were
+            # assigned -Inf synthetically and must NOT pollute the Q-table.
             if self.q_filter is not None and evaluate_mask[i]:
                 q_reward = reward[0] if reward[0] != float("-Inf") else -1e6
+                
+                # 1. Update the primary Eval Phase table
                 state = self.q_filter.extract_state(indv)
                 self.q_filter.update(state, q_reward)
+                
+                # 2. Backpropagate the reward to the Crossover, Growth, or Aging tables
+                indv_str = str(indv)
+                if hasattr(self, 'generation_lineage') and indv_str in self.generation_lineage:
+                    lineage = self.generation_lineage[indv_str]
+                    self.q_filter.update(lineage['parent'], q_reward, table_type=lineage['type'])
+            # ────────────────────────────────────────────────────────────────
             # ────────────────────────────────────────────────────────────────
 
             if gen_best < judging_reward:
@@ -805,7 +958,14 @@ class GAMMA(object):
         population = self.reinit_pop(pool,self.num_population,  self.stage_idx, self.best_sol_1st, self.init_pop, bias=bias)
         if self.map_cstr:
             self.cstr_list, self.num_free_order, self.num_free_par = self.map_cstr.get_cstr_list(copy.deepcopy(population[0]), fixed_sp_sz=self.fixedCluster)
+        # for g in range(num_generations):
+
+        #     while self.num_parents < 1:  # restart
+        #         population = self.reinit_pop(pool, self.num_population, self.stage_idx, self.best_sol_1st, self.init_pop, cur_gen=g)
+        #         print("Reinitialize population")
         for g in range(num_generations):
+            # Q-Filter Lineage Tracker
+            self.generation_lineage = {}
 
             while self.num_parents < 1:  # restart
                 population = self.reinit_pop(pool, self.num_population, self.stage_idx, self.best_sol_1st, self.init_pop, cur_gen=g)

@@ -1,0 +1,826 @@
+[QFilter] ENABLED  — Q-table: ../../outdir_tune_decay0.85_alpha0.1/GAMMA_resnet18_GEN-100_POP-20/q_table.json
+[QFilter] Gen 1: evaluated=21, skipped=0, ε=0.850, Eval Q-states=29
+[Gen 1] Genome type frequency (sp dimension across population):
+  C:    8  (19.0%)
+  K:   16  (38.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    8  (19.0%)
+  Y:   10  (23.8%)
+[QFilter] Gen 2: evaluated=19, skipped=2, ε=0.722, Eval Q-states=36
+[Gen 2] Genome type frequency (sp dimension across population):
+  C:    8  (19.0%)
+  K:   21  (50.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:   10  (23.8%)
+[QFilter] Gen 3: evaluated=17, skipped=4, ε=0.614, Eval Q-states=42
+[Gen 3] Genome type frequency (sp dimension across population):
+  C:   12  (28.6%)
+  K:   18  (42.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:   10  (23.8%)
+[QFilter] Gen 4: evaluated=19, skipped=2, ε=0.522, Eval Q-states=44
+[Gen 4] Genome type frequency (sp dimension across population):
+  C:    7  (16.7%)
+  K:   16  (38.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    5  (11.9%)
+  Y:   14  (33.3%)
+[QFilter] Gen 5: evaluated=16, skipped=5, ε=0.444, Eval Q-states=49
+[Gen 5] Genome type frequency (sp dimension across population):
+  C:    9  (21.4%)
+  K:   17  (40.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:   14  (33.3%)
+[QFilter] Gen 6: evaluated=18, skipped=3, ε=0.377, Eval Q-states=53
+[Gen 6] Genome type frequency (sp dimension across population):
+  C:   14  (33.3%)
+  K:   14  (33.3%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    8  (19.0%)
+  Y:    6  (14.3%)
+[QFilter] Gen 7: evaluated=21, skipped=0, ε=0.321, Eval Q-states=57
+[Gen 7] Genome type frequency (sp dimension across population):
+  C:   17  (40.5%)
+  K:    7  (16.7%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   16  (38.1%)
+  Y:    2  (4.8%)
+[QFilter] Gen 8: evaluated=19, skipped=2, ε=0.272, Eval Q-states=60
+[Gen 8] Genome type frequency (sp dimension across population):
+  C:   13  (31.0%)
+  K:    1  (2.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   24  (57.1%)
+  Y:    4  (9.5%)
+[QFilter] Gen 9: evaluated=14, skipped=7, ε=0.232, Eval Q-states=64
+[Gen 9] Genome type frequency (sp dimension across population):
+  C:   13  (31.0%)
+  K:    1  (2.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   28  (66.7%)
+  Y:    0  (0.0%)
+[QFilter] Gen 10: evaluated=17, skipped=4, ε=0.197, Eval Q-states=66
+[Gen 10] Genome type frequency (sp dimension across population):
+  C:   17  (40.5%)
+  K:    2  (4.8%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   23  (54.8%)
+  Y:    0  (0.0%)
+[QFilter] Gen 11: evaluated=19, skipped=2, ε=0.167, Eval Q-states=68
+[Gen 11] Genome type frequency (sp dimension across population):
+  C:   20  (47.6%)
+  K:    3  (7.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   19  (45.2%)
+  Y:    0  (0.0%)
+[QFilter] Gen 12: evaluated=17, skipped=4, ε=0.142, Eval Q-states=72
+[Gen 12] Genome type frequency (sp dimension across population):
+  C:   18  (42.9%)
+  K:    1  (2.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   22  (52.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 13: evaluated=17, skipped=4, ε=0.121, Eval Q-states=76
+[Gen 13] Genome type frequency (sp dimension across population):
+  C:   18  (42.9%)
+  K:    3  (7.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   20  (47.6%)
+  Y:    1  (2.4%)
+[QFilter] Gen 14: evaluated=21, skipped=0, ε=0.103, Eval Q-states=80
+[Gen 14] Genome type frequency (sp dimension across population):
+  C:   17  (40.5%)
+  K:    5  (11.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   20  (47.6%)
+  Y:    0  (0.0%)
+[QFilter] Gen 15: evaluated=21, skipped=0, ε=0.100, Eval Q-states=88
+[Gen 15] Genome type frequency (sp dimension across population):
+  C:   12  (28.6%)
+  K:    8  (19.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   22  (52.4%)
+  Y:    0  (0.0%)
+[QFilter] Gen 16: evaluated=21, skipped=0, ε=0.100, Eval Q-states=93
+[Gen 16] Genome type frequency (sp dimension across population):
+  C:   13  (31.0%)
+  K:    9  (21.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   18  (42.9%)
+  Y:    2  (4.8%)
+[QFilter] Gen 17: evaluated=21, skipped=0, ε=0.100, Eval Q-states=96
+[Gen 17] Genome type frequency (sp dimension across population):
+  C:   13  (31.0%)
+  K:   10  (23.8%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   16  (38.1%)
+  Y:    3  (7.1%)
+[QFilter] Gen 18: evaluated=21, skipped=0, ε=0.100, Eval Q-states=103
+[Gen 18] Genome type frequency (sp dimension across population):
+  C:   10  (23.8%)
+  K:   14  (33.3%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   17  (40.5%)
+  Y:    1  (2.4%)
+[QFilter] Gen 19: evaluated=21, skipped=0, ε=0.100, Eval Q-states=107
+[Gen 19] Genome type frequency (sp dimension across population):
+  C:    9  (21.4%)
+  K:   13  (31.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   19  (45.2%)
+  Y:    1  (2.4%)
+[QFilter] Gen 20: evaluated=21, skipped=0, ε=0.100, Eval Q-states=114
+[Gen 20] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   17  (40.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   17  (40.5%)
+  Y:    5  (11.9%)
+[QFilter] Gen 21: evaluated=21, skipped=0, ε=0.100, Eval Q-states=118
+[Gen 21] Genome type frequency (sp dimension across population):
+  C:    9  (21.4%)
+  K:   13  (31.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   11  (26.2%)
+  Y:    9  (21.4%)
+[QFilter] Gen 22: evaluated=20, skipped=1, ε=0.100, Eval Q-states=122
+[Gen 22] Genome type frequency (sp dimension across population):
+  C:   12  (28.6%)
+  K:   12  (28.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   13  (31.0%)
+  Y:    5  (11.9%)
+[QFilter] Gen 23: evaluated=19, skipped=2, ε=0.100, Eval Q-states=125
+[Gen 23] Genome type frequency (sp dimension across population):
+  C:    6  (14.3%)
+  K:   15  (35.7%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   12  (28.6%)
+  Y:    9  (21.4%)
+[QFilter] Gen 24: evaluated=19, skipped=2, ε=0.100, Eval Q-states=125
+[Gen 24] Genome type frequency (sp dimension across population):
+  C:    7  (16.7%)
+  K:   17  (40.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   10  (23.8%)
+  Y:    8  (19.0%)
+[QFilter] Gen 25: evaluated=21, skipped=0, ε=0.100, Eval Q-states=128
+[Gen 25] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   21  (50.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    5  (11.9%)
+  Y:   11  (26.2%)
+[QFilter] Gen 26: evaluated=21, skipped=0, ε=0.100, Eval Q-states=131
+[Gen 26] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   18  (42.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    9  (21.4%)
+  Y:   10  (23.8%)
+[QFilter] Gen 27: evaluated=21, skipped=0, ε=0.100, Eval Q-states=131
+[Gen 27] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   26  (61.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:   13  (31.0%)
+[QFilter] Gen 28: evaluated=20, skipped=1, ε=0.100, Eval Q-states=132
+[Gen 28] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   29  (69.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    5  (11.9%)
+  Y:    6  (14.3%)
+[QFilter] Gen 29: evaluated=21, skipped=0, ε=0.100, Eval Q-states=134
+[Gen 29] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   33  (78.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    6  (14.3%)
+[QFilter] Gen 30: evaluated=21, skipped=0, ε=0.100, Eval Q-states=136
+[Gen 30] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    3  (7.1%)
+[QFilter] Gen 31: evaluated=19, skipped=0, ε=0.100, Eval Q-states=139
+[Gen 31] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   36  (94.7%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    2  (5.3%)
+[QFilter] Gen 32: evaluated=20, skipped=0, ε=0.100, Eval Q-states=141
+[Gen 32] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   34  (85.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (5.0%)
+  Y:    4  (10.0%)
+[QFilter] Gen 33: evaluated=21, skipped=0, ε=0.100, Eval Q-states=142
+[Gen 33] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    4  (9.5%)
+[QFilter] Gen 34: evaluated=21, skipped=0, ε=0.100, Eval Q-states=145
+[Gen 34] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   33  (78.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    5  (11.9%)
+[QFilter] Gen 35: evaluated=21, skipped=0, ε=0.100, Eval Q-states=145
+[Gen 35] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    0  (0.0%)
+[QFilter] Gen 36: evaluated=21, skipped=0, ε=0.100, Eval Q-states=146
+[Gen 36] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   41  (97.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    0  (0.0%)
+[QFilter] Gen 37: evaluated=20, skipped=1, ε=0.100, Eval Q-states=146
+[Gen 37] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   40  (95.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 38: evaluated=20, skipped=1, ε=0.100, Eval Q-states=148
+[Gen 38] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   36  (85.7%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    2  (4.8%)
+[QFilter] Gen 39: evaluated=21, skipped=0, ε=0.100, Eval Q-states=149
+[Gen 39] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   40  (95.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 40: evaluated=21, skipped=0, ε=0.100, Eval Q-states=153
+[Gen 40] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 41: evaluated=21, skipped=0, ε=0.100, Eval Q-states=154
+[Gen 41] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    2  (4.8%)
+[QFilter] Gen 42: evaluated=19, skipped=1, ε=0.100, Eval Q-states=159
+[Gen 42] Genome type frequency (sp dimension across population):
+  C:    3  (7.5%)
+  K:   32  (80.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    4  (10.0%)
+  Y:    1  (2.5%)
+[QFilter] Gen 43: evaluated=21, skipped=0, ε=0.100, Eval Q-states=164
+[Gen 43] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    0  (0.0%)
+[QFilter] Gen 44: evaluated=21, skipped=0, ε=0.100, Eval Q-states=167
+[Gen 44] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 45: evaluated=21, skipped=0, ε=0.100, Eval Q-states=171
+[Gen 45] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    0  (0.0%)
+[QFilter] Gen 46: evaluated=21, skipped=0, ε=0.100, Eval Q-states=177
+[Gen 46] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    4  (9.5%)
+  Y:    0  (0.0%)
+[QFilter] Gen 47: evaluated=14, skipped=7, ε=0.100, Eval Q-states=181
+[Gen 47] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    3  (7.1%)
+[QFilter] Gen 48: evaluated=21, skipped=0, ε=0.100, Eval Q-states=182
+[Gen 48] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    5  (11.9%)
+  Y:    3  (7.1%)
+[QFilter] Gen 49: evaluated=21, skipped=0, ε=0.100, Eval Q-states=187
+[Gen 49] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    5  (11.9%)
+[QFilter] Gen 50: evaluated=21, skipped=0, ε=0.100, Eval Q-states=191
+[Gen 50] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    3  (7.1%)
+[QFilter] Gen 51: evaluated=20, skipped=1, ε=0.100, Eval Q-states=192
+[Gen 51] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    3  (7.1%)
+[QFilter] Gen 52: evaluated=21, skipped=0, ε=0.100, Eval Q-states=195
+[Gen 52] Genome type frequency (sp dimension across population):
+  C:    4  (9.5%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    2  (4.8%)
+[QFilter] Gen 53: evaluated=21, skipped=0, ε=0.100, Eval Q-states=199
+[Gen 53] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    4  (9.5%)
+  Y:    1  (2.4%)
+[QFilter] Gen 54: evaluated=21, skipped=0, ε=0.100, Eval Q-states=202
+[Gen 54] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    6  (14.3%)
+[QFilter] Gen 55: evaluated=21, skipped=0, ε=0.100, Eval Q-states=207
+[Gen 55] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   35  (83.3%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    6  (14.3%)
+[QFilter] Gen 56: evaluated=18, skipped=3, ε=0.100, Eval Q-states=213
+[Gen 56] Genome type frequency (sp dimension across population):
+  C:    6  (14.3%)
+  K:   26  (61.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:   10  (23.8%)
+[QFilter] Gen 57: evaluated=21, skipped=0, ε=0.100, Eval Q-states=217
+[Gen 57] Genome type frequency (sp dimension across population):
+  C:    4  (9.5%)
+  K:   25  (59.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:   13  (31.0%)
+[QFilter] Gen 58: evaluated=21, skipped=0, ε=0.100, Eval Q-states=219
+[Gen 58] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   25  (59.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:   16  (38.1%)
+[QFilter] Gen 59: evaluated=21, skipped=0, ε=0.100, Eval Q-states=222
+[Gen 59] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   22  (52.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:   17  (40.5%)
+[QFilter] Gen 60: evaluated=21, skipped=0, ε=0.100, Eval Q-states=227
+[Gen 60] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   25  (59.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:   15  (35.7%)
+[QFilter] Gen 61: evaluated=21, skipped=0, ε=0.100, Eval Q-states=229
+[Gen 61] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   24  (57.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:   13  (31.0%)
+[QFilter] Gen 62: evaluated=19, skipped=2, ε=0.100, Eval Q-states=234
+[Gen 62] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   29  (69.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:   10  (23.8%)
+[QFilter] Gen 63: evaluated=21, skipped=0, ε=0.100, Eval Q-states=238
+[Gen 63] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   26  (61.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    8  (19.0%)
+[QFilter] Gen 64: evaluated=20, skipped=1, ε=0.100, Eval Q-states=241
+[Gen 64] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    1  (2.4%)
+[QFilter] Gen 65: evaluated=16, skipped=5, ε=0.100, Eval Q-states=246
+[Gen 65] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   32  (76.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    3  (7.1%)
+[QFilter] Gen 66: evaluated=21, skipped=0, ε=0.100, Eval Q-states=252
+[Gen 66] Genome type frequency (sp dimension across population):
+  C:    8  (19.0%)
+  K:   33  (78.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 67: evaluated=21, skipped=0, ε=0.100, Eval Q-states=256
+[Gen 67] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   32  (76.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    2  (4.8%)
+[QFilter] Gen 68: evaluated=21, skipped=0, ε=0.100, Eval Q-states=257
+[Gen 68] Genome type frequency (sp dimension across population):
+  C:    7  (16.7%)
+  K:   30  (71.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    4  (9.5%)
+  Y:    1  (2.4%)
+[QFilter] Gen 69: evaluated=21, skipped=0, ε=0.100, Eval Q-states=261
+[Gen 69] Genome type frequency (sp dimension across population):
+  C:    5  (11.9%)
+  K:   34  (81.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    1  (2.4%)
+[QFilter] Gen 70: evaluated=21, skipped=0, ε=0.100, Eval Q-states=267
+[Gen 70] Genome type frequency (sp dimension across population):
+  C:   10  (23.8%)
+  K:   29  (69.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    2  (4.8%)
+[QFilter] Gen 71: evaluated=21, skipped=0, ε=0.100, Eval Q-states=270
+[Gen 71] Genome type frequency (sp dimension across population):
+  C:   15  (35.7%)
+  K:   22  (52.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    2  (4.8%)
+[QFilter] Gen 72: evaluated=21, skipped=0, ε=0.100, Eval Q-states=272
+[Gen 72] Genome type frequency (sp dimension across population):
+  C:   18  (42.9%)
+  K:   16  (38.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    4  (9.5%)
+  Y:    4  (9.5%)
+[QFilter] Gen 73: evaluated=15, skipped=5, ε=0.100, Eval Q-states=277
+[Gen 73] Genome type frequency (sp dimension across population):
+  C:   14  (35.0%)
+  K:   11  (27.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   11  (27.5%)
+  Y:    4  (10.0%)
+[QFilter] Gen 74: evaluated=17, skipped=4, ε=0.100, Eval Q-states=279
+[Gen 74] Genome type frequency (sp dimension across population):
+  C:    9  (21.4%)
+  K:   17  (40.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   13  (31.0%)
+  Y:    3  (7.1%)
+[QFilter] Gen 75: evaluated=21, skipped=0, ε=0.100, Eval Q-states=281
+[Gen 75] Genome type frequency (sp dimension across population):
+  C:    4  (9.5%)
+  K:   26  (61.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   10  (23.8%)
+  Y:    2  (4.8%)
+[QFilter] Gen 76: evaluated=21, skipped=0, ε=0.100, Eval Q-states=284
+[Gen 76] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   22  (52.4%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:   15  (35.7%)
+  Y:    3  (7.1%)
+[QFilter] Gen 77: evaluated=21, skipped=0, ε=0.100, Eval Q-states=286
+[Gen 77] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   29  (69.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    9  (21.4%)
+  Y:    3  (7.1%)
+[QFilter] Gen 78: evaluated=21, skipped=0, ε=0.100, Eval Q-states=288
+[Gen 78] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   35  (83.3%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    4  (9.5%)
+[QFilter] Gen 79: evaluated=20, skipped=1, ε=0.100, Eval Q-states=289
+[Gen 79] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   31  (73.8%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    8  (19.0%)
+[QFilter] Gen 80: evaluated=20, skipped=0, ε=0.100, Eval Q-states=294
+[Gen 80] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   35  (87.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.5%)
+  Y:    4  (10.0%)
+[QFilter] Gen 81: evaluated=20, skipped=0, ε=0.100, Eval Q-states=296
+[Gen 81] Genome type frequency (sp dimension across population):
+  C:    1  (2.5%)
+  K:   34  (85.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.5%)
+  Y:    4  (10.0%)
+[QFilter] Gen 82: evaluated=21, skipped=0, ε=0.100, Eval Q-states=297
+[Gen 82] Genome type frequency (sp dimension across population):
+  C:    3  (7.1%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    2  (4.8%)
+[QFilter] Gen 83: evaluated=20, skipped=0, ε=0.100, Eval Q-states=300
+[Gen 83] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   36  (90.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.5%)
+  Y:    1  (2.5%)
+[QFilter] Gen 84: evaluated=21, skipped=0, ε=0.100, Eval Q-states=305
+[Gen 84] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    1  (2.4%)
+[QFilter] Gen 85: evaluated=20, skipped=1, ε=0.100, Eval Q-states=308
+[Gen 85] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 86: evaluated=21, skipped=0, ε=0.100, Eval Q-states=309
+[Gen 86] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    1  (2.4%)
+[QFilter] Gen 87: evaluated=21, skipped=0, ε=0.100, Eval Q-states=312
+[Gen 87] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 88: evaluated=21, skipped=0, ε=0.100, Eval Q-states=314
+[Gen 88] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   36  (85.7%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (4.8%)
+  Y:    2  (4.8%)
+[QFilter] Gen 89: evaluated=19, skipped=1, ε=0.100, Eval Q-states=316
+[Gen 89] Genome type frequency (sp dimension across population):
+  C:    3  (7.5%)
+  K:   32  (80.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (5.0%)
+  Y:    3  (7.5%)
+[QFilter] Gen 90: evaluated=19, skipped=1, ε=0.100, Eval Q-states=321
+[Gen 90] Genome type frequency (sp dimension across population):
+  C:    2  (5.0%)
+  K:   32  (80.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    2  (5.0%)
+  Y:    4  (10.0%)
+[QFilter] Gen 91: evaluated=19, skipped=2, ε=0.100, Eval Q-states=325
+[Gen 91] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 92: evaluated=21, skipped=0, ε=0.100, Eval Q-states=329
+[Gen 92] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    5  (11.9%)
+  Y:    0  (0.0%)
+[QFilter] Gen 93: evaluated=21, skipped=0, ε=0.100, Eval Q-states=331
+[Gen 93] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   40  (95.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    1  (2.4%)
+[QFilter] Gen 94: evaluated=21, skipped=0, ε=0.100, Eval Q-states=334
+[Gen 94] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   41  (97.6%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 95: evaluated=21, skipped=0, ε=0.100, Eval Q-states=338
+[Gen 95] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   42  (100.0%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    0  (0.0%)
+[QFilter] Gen 96: evaluated=21, skipped=0, ε=0.100, Eval Q-states=339
+[Gen 96] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   39  (92.9%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    2  (4.8%)
+[QFilter] Gen 97: evaluated=21, skipped=0, ε=0.100, Eval Q-states=339
+[Gen 97] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   40  (95.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    1  (2.4%)
+  Y:    0  (0.0%)
+[QFilter] Gen 98: evaluated=20, skipped=1, ε=0.100, Eval Q-states=340
+[Gen 98] Genome type frequency (sp dimension across population):
+  C:    2  (4.8%)
+  K:   38  (90.5%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    2  (4.8%)
+[QFilter] Gen 99: evaluated=20, skipped=1, ε=0.100, Eval Q-states=341
+[Gen 99] Genome type frequency (sp dimension across population):
+  C:    1  (2.4%)
+  K:   40  (95.2%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    0  (0.0%)
+  Y:    1  (2.4%)
+[QFilter] Gen 100: evaluated=21, skipped=0, ε=0.100, Eval Q-states=342
+[Gen 100] Genome type frequency (sp dimension across population):
+  C:    0  (0.0%)
+  K:   37  (88.1%)
+  R:    0  (0.0%)
+  S:    0  (0.0%)
+  X:    3  (7.1%)
+  Y:    2  (4.8%)
+
+============================================================
+[QFilter] Run Summary
+  Total candidates generated : 2090
+  Total MAESTRO calls        : 2006
+  Total skipped by Q-filter  : 84  (4.0%)
+  Final ε                    : 0.1000
+  Eval States Known          : 342
+  Crossover States Known     : 0
+  Growth States Known        : 0
+  Aging States Known         : 0
+============================================================
+  Top 5 genome states by Q-value (Eval Phase):
+    K|KYRSXC                        Q=-29.70
+    K|SCYXKR                        Q=-30.10
+    K|RCSKYX                        Q=-59.00
+    K|XCKRYS                        Q=-84.50
+    K|CRYKXS                        Q=-147.20
+============================================================
+
+[QFilter] Q-tables saved → ../../outdir_tune_decay0.85_alpha0.1/GAMMA_resnet18_GEN-100_POP-20/q_table.json (Eval states: 342)
+[GAMMA] Layer 1: genome_all.csv (2110 rows)
+[GAMMA] Saved genome_best.csv (1863 rows)
+Mapping: [['K', 163], ['K', 6], ['S', 7], ['Y', 222], ['R', 5], ['X', 222], ['C', 3], ['K', 6], ['R', 2], ['S', 7], ['C', 3], ['X', 1], ['Y', 1], ['K', 1]]
+Reward: -1.500e+02, Runtime: 150(cycles), Area: 0.079(mm2), PE Area_ratio: 60.0%, Num_PE: 168, L1 Buffer: 196(elements), L2 Buffer: 12952(elements)

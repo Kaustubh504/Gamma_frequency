@@ -16,6 +16,7 @@ if project_path not in sys.path:
     sys.path.insert(0, project_path)
 from utils import *
 import gamma as gamma
+# from Gamma_frequency.src.GAMMA.q_filter_old import QFilter
 from q_filter import QFilter
 from math import ceil
 import importlib
@@ -123,20 +124,33 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
     # record best_fitness, then compare against --use_qfilter runs.
     q_table_path = os.path.join(os.path.dirname(chkpt_file), "q_table.json")
 
+    # if getattr(opt, 'use_qfilter', False):
+    #     q_filter = QFilter(
+    #         alpha=0.1,          # learning rate — how fast Q-values update
+    #         epsilon=1.0,        # start by evaluating everything (full explore)
+    #         epsilon_decay=0.9,  # decay per generation (gen5→ε≈0.59, gen15→ε≈0.21)
+    #         epsilon_min=0.10,   # always keep 10% random exploration
+    #         # skip_threshold: Q(s,1) must exceed this to evaluate during exploit.
+    #         # fitness1 for latency = -runtime → always negative for valid genomes.
+    #         # -1e17 means: only skip states that MAESTRO consistently rejects
+    #         # (those get Q pulled toward -1e6 per rejection).
+    #         # After your first run, check genome_all.csv → look at typical
+    #         # fitness1 values → tighten this threshold to skip more aggressively.
+    #         skip_threshold=-500_000,
+    #         q_table_path=q_table_path,  # saves q_table.json for warm-starting
+    #     )
+    #     print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     if getattr(opt, 'use_qfilter', False):
         q_filter = QFilter(
-            alpha=0.1,          # learning rate — how fast Q-values update
-            epsilon=1.0,        # start by evaluating everything (full explore)
-            epsilon_decay=0.9,  # decay per generation (gen5→ε≈0.59, gen15→ε≈0.21)
-            epsilon_min=0.10,   # always keep 10% random exploration
-            # skip_threshold: Q(s,1) must exceed this to evaluate during exploit.
-            # fitness1 for latency = -runtime → always negative for valid genomes.
-            # -1e17 means: only skip states that MAESTRO consistently rejects
-            # (those get Q pulled toward -1e6 per rejection).
-            # After your first run, check genome_all.csv → look at typical
-            # fitness1 values → tighten this threshold to skip more aggressively.
+            alpha=opt.q_alpha,             # Passed from CLI
+            gamma_param=opt.q_gamma,       # Passed from CLI
+            table_size=opt.q_table_size,   # Passed from CLI
+            epsilon=1.0,
+            # epsilon_decay=0.9,
+            epsilon_decay=opt.epsilon_decay,  # <-- ADD THIS LINE
+            epsilon_min=0.10,
             skip_threshold=-500_000,
-            q_table_path=q_table_path,  # saves q_table.json for warm-starting
+            q_table_path=q_table_path,
         )
         print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     else:

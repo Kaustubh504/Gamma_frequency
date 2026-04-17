@@ -52,6 +52,12 @@ if __name__ == "__main__":
     parser.add_argument('--use_qfilter', action='store_true',
                         help='Enable Q-learning filter')
 
+    parser.add_argument('--q_guided_mutation', action='store_true',
+                        help='Enable Q-value guided mutation point selection '
+                             '(requires --use_qfilter). High-Q genome structures '
+                             'are protected from sp_dim mutations; only tile sizes '
+                             'are mutated for known-good loop orders.')
+
     opt = parser.parse_args()
 
     history_path = '../../'

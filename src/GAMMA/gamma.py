@@ -62,6 +62,7 @@ class GAMMA(object):
         self.area_pebuf_only=False
         self.external_area_model = False
         self.q_filter = q_filter  # QFilter instance, or None to disable
+        self.q_guided_mutation = False  # set True via set_q_guided_mutation()
 
     def reset_hw_parm(self, l1_size=None, l2_size=None, num_pe=None, NocBW=None, map_cstr=None, pe_limit=None,area_pebuf_only=None, external_area_model=None, offchipBW=None):
         if l1_size:
@@ -277,11 +278,59 @@ class GAMMA(object):
             self.best_sol_pleteau = copy.deepcopy(new_pop[:num_pletau])
         return new_pop, new_fitness, parents
 
+    # ------------------------------------------------------------------
+    # Q-guided mutation point selection
+    # ------------------------------------------------------------------
+    def _get_biased_mutation_pick(self, indv, cluster_level=0):
+        """
+        Returns a mutation pick index within the given cluster level of indv,
+        biased by the Q-filter's known-good genome whitelist.
+
+        Logic:
+          - If this genome's (sp_dim, loop_order) at cluster_level matches a
+            high-Q state, it's a "known-good" structure.
+            -> Protect the sp_dim (position 0 of cluster): only mutate tile
+               sizes (positions 1-6). This preserves winning loop orders.
+          - If the genome is unknown / low-Q:
+            -> Mutate anything freely (including sp_dim), since we don't yet
+               know whether this structure is worth keeping.
+
+        Returns an absolute index into indv (not relative to cluster).
+        """
+        offset = cluster_level * 7
+
+        if self.q_filter is None:
+            # No Q-filter: fully random within this cluster's 7 genes
+            return random.randint(0, 6) + offset
+
+        good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=0.0)
+
+        # Extract this cluster's current structure
+        seg = indv[offset: offset + 7]
+        cur_sp = seg[0][0]
+        cur_order = tuple(seg[i][0] for i in range(1, 7))
+
+        if (cur_sp, cur_order) in good_orders:
+            # Known-good: only mutate tile sizes (relative positions 1-6)
+            return random.randint(1, 6) + offset
+        else:
+            # Unknown/low-Q: mutate freely (relative positions 0-6)
+            return random.randint(0, 6) + offset
+
     def mutate_par(self, pop,alpha=0.5):
         if self.map_cstr is not None:
             return
         for idx in range(len(pop)):
             if random.random() < alpha:
+                # Q-guided guard: if this genome's structure is in the high-Q
+                # whitelist, skip the sp_dim swap — don't disrupt a winner.
+                if self.q_filter is not None:
+                    good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=0.0)
+                    indv = pop[idx]
+                    cur_sp    = indv[0][0]
+                    cur_order = tuple(indv[i][0] for i in range(1, 7))
+                    if (cur_sp, cur_order) in good_orders:
+                        continue  # protect known-good sp_dim
                 # if self.map_cstr is not None:
                 #     avail_val = self.num_free_par + self.num_free_order - 1
                 # else:
@@ -325,7 +374,14 @@ class GAMMA(object):
                         else:
                             pick = random.randint(0, len(indv) - 1)
                     else:
-                        pick = random.randint(0, len(indv) - 1)
+                        # Q-guided mutation: pick a cluster level first, then
+                        # use biased pick to protect high-Q genome structures
+                        if getattr(self, 'q_guided_mutation', False) and self.q_filter is not None:
+                            num_clusters = len(indv) // 7
+                            cluster_level = random.randint(0, num_clusters - 1)
+                            pick = self._get_biased_mutation_pick(indv, cluster_level)
+                        else:
+                            pick = random.randint(0, len(indv) - 1)
                     if cluster_only:
                         pick = 7
                     if pick % 7 == 0:

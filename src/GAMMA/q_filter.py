@@ -167,6 +167,41 @@ class QFilter:
             self.q_table_eval = OrderedDict(save_data.items())
 
     # ------------------------------------------------------------------
+    # Q-value whitelist helpers (used by guided mutation in gamma.py)
+    # ------------------------------------------------------------------
+    def get_good_states(self, table_type="eval", top_n=20):
+        """
+        Returns top_n highest Q-value state keys from the specified table.
+        State format: "sp_dim|loop_order"  e.g. "K|KCYRXS"
+        Returns list of (state_key, q_value) tuples sorted descending.
+        """
+        table = getattr(self, f"q_table_{table_type}")
+        if not table:
+            return []
+        sorted_states = sorted(table.items(), key=lambda x: x[1], reverse=True)
+        return sorted_states[:top_n]
+
+    def get_good_loop_orders(self, table_type="eval", top_n=30, threshold=0.0):
+        """
+        Returns a set of (sp_dim, loop_order_tuple) pairs from the top Q-states.
+        Used by gamma.py to identify which genome structures to protect from
+        structural mutation (sp_dim swaps). Only returns states with Q > threshold.
+
+        Example return value:
+            {("K", ("K","C","Y","R","X","S")), ("C", ("C","K","X","Y","R","S")), ...}
+        """
+        good = set()
+        for state_key, q_val in self.get_good_states(table_type, top_n):
+            if q_val <= threshold:
+                continue
+            parts = state_key.split("|")
+            if len(parts) == 2 and len(parts[1]) == 6:
+                sp_dim = parts[0]
+                loop_order = tuple(parts[1])   # e.g. ('K','C','Y','R','X','S')
+                good.add((sp_dim, loop_order))
+        return good
+
+    # ------------------------------------------------------------------
     # Summary after full run
     # ------------------------------------------------------------------
     def print_summary(self):

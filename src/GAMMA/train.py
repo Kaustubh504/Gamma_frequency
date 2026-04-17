@@ -175,6 +175,13 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
         q_filter=q_filter,  # None = disabled, runs identically to original
     )
 
+    # Wire Q-guided mutation flag (only effective if q_filter is also enabled)
+    env.q_guided_mutation = getattr(opt, 'q_guided_mutation', False)
+    if env.q_guided_mutation and q_filter is not None:
+        print("[QFilter] Q-guided mutation ENABLED — high-Q genome structures protected from sp_dim mutation")
+    elif env.q_guided_mutation and q_filter is None:
+        print("[QFilter] WARNING: --q_guided_mutation has no effect without --use_qfilter")
+
     constraints = {"area": opt.area_budget * 1e6}
 
     for layer_idx, dimension in enumerate(model_defs):

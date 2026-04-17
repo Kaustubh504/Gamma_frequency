@@ -47,10 +47,15 @@ if __name__ == "__main__":
     parser.add_argument('--costmodel_cstr', type=str, default='maestro_cstr')
     parser.add_argument('--area_budget', type=float, default=-1)
     parser.add_argument('--pe_limit', type=int, default=-1)
-
+    #q table size for q-learning filter
+    # parser.add_argument('--q_table_size', type=int, default=5000, 
+                        # help='Maximum number of states the Q-table can memorize')
     # 🔥 NEW FLAG
     parser.add_argument('--use_qfilter', action='store_true',
                         help='Enable Q-learning filter')
+    parser.add_argument('--q_cross', action='store_true', help='Enable Cross Q-table')
+    parser.add_argument('--q_growth', action='store_true', help='Enable Growth Q-table')
+    parser.add_argument('--q_aging', action='store_true', help='Enable Aging Q-table')
 
     opt = parser.parse_args()
 

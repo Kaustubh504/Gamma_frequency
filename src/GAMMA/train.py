@@ -144,13 +144,14 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
         q_filter = QFilter(
             alpha=opt.q_alpha,             # Passed from CLI
             gamma_param=opt.q_gamma,       # Passed from CLI
-            table_size=opt.q_table_size,   # Passed from CLI
+            # table_size=opt.q_table_size,   # Passed from CLI
             epsilon=1.0,
             # epsilon_decay=0.9,
             epsilon_decay=opt.epsilon_decay,  # <-- ADD THIS LINE
             epsilon_min=0.10,
             skip_threshold=-500_000,
             q_table_path=q_table_path,
+            table_size=getattr(opt, 'q_table_size', 5000)
         )
         print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     else:

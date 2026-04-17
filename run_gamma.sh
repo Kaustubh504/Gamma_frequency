@@ -80,36 +80,36 @@
 ## 100 epochs run
 
 
-cd ./src/GAMMA
+# cd ./src/GAMMA
 
-# Optional but highly recommended: Force Linux to drop its disk caches before starting!
-# (Requires sudo, skip this specific command if you don't have root access)
-sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
+# # Optional but highly recommended: Force Linux to drop its disk caches before starting!
+# # (Requires sudo, skip this specific command if you don't have root access)
+# sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
 
-echo "======================================================="
-echo " RUNNING OPTIMIZED (Q-FILTER) FIRST - COLD START"
-echo "======================================================="
+# echo "======================================================="
+# echo " RUNNING OPTIMIZED (Q-FILTER) FIRST - COLD START"
+# echo "======================================================="
+# # time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
+# #                 --l1_size 512 --l2_size 108000 --NocBW 81920000 \
+# #                 --epochs 200 --model resnet18 --num_layer 1 \
+# #                 --use_qfilter --q_table_size 5000 --q_alpha 0.5 --q_gamma 0.9 \
+# #                 --outdir outdir_qfilter_cold
 # time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
 #                 --l1_size 512 --l2_size 108000 --NocBW 81920000 \
-#                 --epochs 200 --model resnet18 --num_layer 1 \
-#                 --use_qfilter --q_table_size 5000 --q_alpha 0.5 --q_gamma 0.9 \
-#                 --outdir outdir_qfilter_cold
-time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
-                --l1_size 512 --l2_size 108000 --NocBW 81920000 \
-                --epochs 200 --model vgg16 --num_layer 1 \
-                --use_qfilter --q_table_size 5000 \
-                --q_alpha 0.5 --q_gamma 0.9 --epsilon_decay 0.98 \
-                --outdir outdir_final_run
+#                 --epochs 20 --model vgg16 --num_layer 1 \
+#                 --use_qfilter --q_table_size 5000 \
+#                 --q_alpha 0.5 --q_gamma 0.9 --epsilon_decay 0.98 \
+#                 --outdir outdir_final_run
 
-echo "======================================================="
-echo "🏃 RUNNING BASELINE (NO Q-FILTER) SECOND - WARM CACHE"
-echo "======================================================="
-time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
-                --l1_size 512 --l2_size 108000 --NocBW 81920000 \
-                --epochs 200 --model vgg16 --num_layer 1 \
-                --outdir outdir_baseline_warm
+# echo "======================================================="
+# echo "🏃 RUNNING BASELINE (NO Q-FILTER) SECOND - WARM CACHE"
+# echo "======================================================="
+# time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
+#                 --l1_size 512 --l2_size 108000 --NocBW 81920000 \
+#                 --epochs 20 --model vgg16 --num_layer 1 \
+#                 --outdir outdir_baseline_warm
 
-cd ../../
+# cd ../../
 
 # ./run_gamma.sh 2>&1 | tee full_log.txt
 
@@ -117,3 +117,67 @@ cd ../../
 # make excel file for different models without q filter and with q filter.
 # describe the different fields of the q table.
 # set the epoch as per the paper.
+
+# 10 april 2026:
+
+#!/bin/bash
+
+#!/bin/bash
+
+cd ./src/GAMMA
+
+MODELS=("resnet18" "vgg16" "mobilenet_v2")
+EPOCHS=50
+POPULATION=200
+
+ALPHA=0.5
+GAMMA=0.9
+DECAY=0.98
+TABLE_SIZE=5000
+
+echo "======================================================="
+echo "🚀 STARTING MULTI-MODEL BENCHMARKING SUITE"
+echo "======================================================="
+echo "Configuration: $EPOCHS Epochs | $POPULATION Population"
+echo "Q-Filter Params: Alpha=$ALPHA, Gamma=$GAMMA, Decay=$DECAY, Size=$TABLE_SIZE"
+echo "======================================================="
+
+for model in "${MODELS[@]}"; do
+    echo "-------------------------------------------------------"
+    echo "📊 EVALUATING MODEL: $model"
+    echo "-------------------------------------------------------"
+    
+    OUT_DIR_BASE="outdir_${model}_baseline"
+    echo "▶️ [1/2] Running Baseline (Standard GA)..."
+    
+    sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' 2>/dev/null
+    
+    # Using 'tee' to show output on screen AND save to log
+    time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
+        --l1_size 512 --l2_size 108000 --NocBW 81920000 \
+        --epochs $EPOCHS --num_pop $POPULATION \
+        --model $model --num_layer 1 \
+        --outdir $OUT_DIR_BASE 2>&1 | tee "../${OUT_DIR_BASE}_log.txt"
+        
+    OUT_DIR_QF="outdir_${model}_qfilter"
+    echo "▶️ [2/2] Running Multiphase Q-Filter..."
+    
+    sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches' 2>/dev/null
+    
+    # Using 'tee' to show output on screen AND save to log
+    time python3 main.py --fitness1 latency --fitness2 power --num_pe 168 \
+        --l1_size 512 --l2_size 108000 --NocBW 81920000 \
+        --epochs $EPOCHS --num_pop $POPULATION \
+        --model $model --num_layer 1 \
+        --use_qfilter --q_table_size $TABLE_SIZE \
+        --q_alpha $ALPHA --q_gamma $GAMMA --epsilon_decay $DECAY \
+        --q_cross --q_growth --q_aging \
+        --outdir $OUT_DIR_QF 2>&1 | tee "../${OUT_DIR_QF}_log.txt"
+        
+    echo "✅ Finished $model. Logs saved to root directory."
+done
+
+cd ../../
+echo "======================================================="
+echo "🎉 ALL BENCHMARKS COMPLETED!"
+echo "======================================================="

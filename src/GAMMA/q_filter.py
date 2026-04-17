@@ -23,6 +23,7 @@ class QFilter:
         epsilon_min=0.10,   # floor for epsilon (never go fully greedy)
         skip_threshold=0.0, # Q(s,1) must exceed this to evaluate/proceed
         q_table_path=None,  # optional path to save/load Q-table across runs
+        
     ):
         self.alpha = alpha
         self.gamma_param = gamma_param
@@ -32,7 +33,6 @@ class QFilter:
         self.epsilon_min = epsilon_min
         self.skip_threshold = skip_threshold
         self.q_table_path = q_table_path
-
         # Separate tables for different phases using OrderedDict for sizing
         self.q_table_eval = OrderedDict()
         self.q_table_cross = OrderedDict()
@@ -88,9 +88,8 @@ class QFilter:
         new_q = old_q + self.alpha * (reward + (self.gamma_param * next_q) - old_q)
         
         # Update table and mark as recently used (for LRU behavior)
-        if state_key in table:
-            del table[state_key]
         table[state_key] = new_q
+        table.move_to_end(state_key)
         
         self._enforce_table_size(table)
 

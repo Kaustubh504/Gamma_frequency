@@ -58,6 +58,9 @@ if __name__ == "__main__":
                              'are protected from sp_dim mutations; only tile sizes '
                              'are mutated for known-good loop orders.')
 
+    parser.add_argument('--epsilon_min', type=float, default=0.10,
+                        help='Minimum epsilon for Q-filter exploration (default: 0.10)')
+
     opt = parser.parse_args()
 
     history_path = '../../'

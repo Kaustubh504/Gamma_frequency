@@ -148,7 +148,7 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
             epsilon=1.0,
             # epsilon_decay=0.9,
             epsilon_decay=opt.epsilon_decay,  # <-- ADD THIS LINE
-            epsilon_min=0.10,
+            epsilon_min=opt.epsilon_min,
             skip_threshold=-500_000,
             q_table_path=q_table_path,
         )

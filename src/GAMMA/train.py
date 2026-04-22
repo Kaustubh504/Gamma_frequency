@@ -142,15 +142,16 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
     #     print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     if getattr(opt, 'use_qfilter', False):
         q_filter = QFilter(
-            alpha=opt.q_alpha,             # Passed from CLI
-            gamma_param=opt.q_gamma,       # Passed from CLI
-            table_size=opt.q_table_size,   # Passed from CLI
+            alpha=opt.q_alpha,
+            gamma_param=opt.q_gamma,
+            table_size=opt.q_table_size,
             epsilon=1.0,
-            # epsilon_decay=0.9,
-            epsilon_decay=opt.epsilon_decay,  # <-- ADD THIS LINE
+            epsilon_decay=opt.epsilon_decay,
             epsilon_min=opt.epsilon_min,
-            skip_threshold=-500_000,
+            skip_threshold=-500_000,       # overridden by auto_threshold if enabled
             q_table_path=q_table_path,
+            auto_threshold=getattr(opt, 'auto_threshold', True),
+            threshold_percentile=getattr(opt, 'threshold_percentile', 25),
         )
         print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     else:

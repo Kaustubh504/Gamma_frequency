@@ -9,20 +9,23 @@ Uses dynamic table sizing (OrderedDict as LRU cache) and parameterized alpha/gam
 
 import random
 import json
+import math
 import os
 from collections import OrderedDict
 
 class QFilter:
     def __init__(
         self,
-        alpha=0.1,          # learning rate
-        gamma_param=0.9,    # Discount factor (gamma)
-        table_size=10000,   # Maximum size of each Q-table
-        epsilon=1.0,        # initial exploration rate (1.0 = explore everything at first)
-        epsilon_decay=0.9,  # multiply epsilon by this after each generation
-        epsilon_min=0.10,   # floor for epsilon (never go fully greedy)
-        skip_threshold=0.0, # Q(s,1) must exceed this to evaluate/proceed
-        q_table_path=None,  # optional path to save/load Q-table across runs
+        alpha=0.1,              # learning rate
+        gamma_param=0.9,        # Discount factor (gamma)
+        table_size=10000,       # Maximum size of each Q-table
+        epsilon=1.0,            # initial exploration rate (1.0 = explore everything at first)
+        epsilon_decay=0.9,      # multiply epsilon by this after each generation
+        epsilon_min=0.10,       # floor for epsilon (never go fully greedy)
+        skip_threshold=0.0,     # Q(s,1) must exceed this to evaluate/proceed
+        q_table_path=None,      # optional path to save/load Q-table across runs
+        auto_threshold=True,    # auto-tune skip_threshold from gen-1 rewards
+        threshold_percentile=25,# skip genomes below this reward percentile
     ):
         self.alpha = alpha
         self.gamma_param = gamma_param
@@ -32,6 +35,10 @@ class QFilter:
         self.epsilon_min = epsilon_min
         self.skip_threshold = skip_threshold
         self.q_table_path = q_table_path
+        self.auto_threshold = auto_threshold
+        self.threshold_percentile = threshold_percentile
+        self._reward_buffer = []       # collects gen-1 rewards for calibration
+        self._threshold_calibrated = False
 
         # Separate tables for different phases using OrderedDict for sizing
         self.q_table_eval = OrderedDict()
@@ -49,16 +56,30 @@ class QFilter:
     # ------------------------------------------------------------------
     # State extraction
     # ------------------------------------------------------------------
+    @staticmethod
+    def _tile_bucket(size):
+        """Log2-bin a tile size into 8 buckets (0=1, 1=2-3, 2=4-7, ..., 7=128+)."""
+        try:
+            s = int(size)
+        except (TypeError, ValueError):
+            return 0
+        if s <= 1:
+            return 0
+        return min(int(math.log2(s)), 7)
+
     def extract_state(self, indv):
         """
-        Extract a compact hashable state from a genome individual.
-        State = sp_dim|loop_order
+        Extract a hashable state from a genome individual.
+        State = sp_dim | loop_order | tile_bins
+        Tile sizes are log2-bucketed to keep state space tractable while
+        capturing memory access patterns that loop_order alone misses.
         """
         if len(indv) < 7:
-            return "UNKNOWN|()"
-        sp_dim = indv[0][0]                          
-        loop_order = tuple(indv[i][0] for i in range(1, 7)) 
-        return f"{sp_dim}|{''.join(loop_order)}"
+            return "UNKNOWN|()|0,0,0,0,0,0"
+        sp_dim     = indv[0][0]
+        loop_order = "".join(indv[i][0] for i in range(1, 7))
+        tile_bins  = ",".join(str(self._tile_bucket(indv[i][1])) for i in range(1, 7))
+        return f"{sp_dim}|{loop_order}|{tile_bins}"
 
     # ------------------------------------------------------------------
     # Core Q-table operations
@@ -78,21 +99,35 @@ class QFilter:
         Updates the specified Q-table using the Q-learning equation.
         Q(s,a) = Q(s,a) + alpha * (R + gamma * max(Q(s',a)) - Q(s,a))
         """
+        # Buffer valid rewards from gen-1 eval phase for auto-threshold calibration
+        if (self.auto_threshold and not self._threshold_calibrated
+                and table_type == "eval"
+                and reward is not None and reward > -1e15):
+            self._reward_buffer.append(reward)
+
         table = getattr(self, f"q_table_{table_type}")
         old_q = table.get(state_key, 0.0)
-        
-        # Calculate max Q value for next state if it exists
         next_q = table.get(next_state_key, 0.0) if next_state_key else 0.0
-        
-        # Apply standard Q-Learning formula
         new_q = old_q + self.alpha * (reward + (self.gamma_param * next_q) - old_q)
-        
-        # Update table and mark as recently used (for LRU behavior)
+
         if state_key in table:
             del table[state_key]
         table[state_key] = new_q
-        
         self._enforce_table_size(table)
+
+    def _calibrate_threshold(self):
+        """Set skip_threshold to threshold_percentile of gen-1 observed rewards."""
+        if not self._reward_buffer:
+            print("[QFilter] Auto-threshold: no rewards collected, keeping default.")
+            self._threshold_calibrated = True
+            return
+        rewards = sorted(self._reward_buffer)
+        idx = max(0, int(len(rewards) * self.threshold_percentile / 100) - 1)
+        self.skip_threshold = rewards[idx]
+        self._threshold_calibrated = True
+        print(f"[QFilter] Auto-threshold set: {self.skip_threshold:.3e} "
+              f"(p{self.threshold_percentile} of {len(rewards)} gen-1 rewards; "
+              f"range [{rewards[0]:.2e}, {rewards[-1]:.2e}])")
 
     # ------------------------------------------------------------------
     # Decision: should we proceed with this operation?
@@ -117,7 +152,11 @@ class QFilter:
     # After each generation: decay epsilon, log stats
     # ------------------------------------------------------------------
     def end_of_generation(self, gen, n_evaluated, n_skipped):
-        """Decays epsilon and logs stats at the end of the generation."""
+        """Decays epsilon, auto-calibrates threshold after gen 1, logs stats."""
+        # Calibrate skip_threshold from gen-1 rewards before filter starts exploiting
+        if self.auto_threshold and not self._threshold_calibrated and gen == 0:
+            self._calibrate_threshold()
+
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         stat = {
             "gen":        gen + 1,
@@ -195,7 +234,7 @@ class QFilter:
             if q_val <= threshold:
                 continue
             parts = state_key.split("|")
-            if len(parts) == 2 and len(parts[1]) == 6:
+            if len(parts) >= 2 and len(parts[1]) == 6:
                 sp_dim = parts[0]
                 loop_order = tuple(parts[1])   # e.g. ('K','C','Y','R','X','S')
                 good.add((sp_dim, loop_order))

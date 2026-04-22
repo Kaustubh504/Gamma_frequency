@@ -60,6 +60,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--epsilon_min', type=float, default=0.10,
                         help='Minimum epsilon for Q-filter exploration (default: 0.10)')
+    parser.add_argument('--auto_threshold', action='store_true', default=True,
+                        help='Auto-tune skip_threshold from gen-1 rewards (default: on)')
+    parser.add_argument('--threshold_percentile', type=float, default=25.0,
+                        help='Reward percentile for auto skip_threshold (default: 25)')
 
     opt = parser.parse_args()
 

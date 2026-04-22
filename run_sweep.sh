@@ -70,6 +70,7 @@ run_exp() {
         --num_pe $NUM_PE \
         --l1_size $L1 \
         --l2_size $L2 \
+        --seed 42 \
         --outdir results/${MODEL}_${TAG}"
 
     if [ "$USE_QF" = "1" ]; then

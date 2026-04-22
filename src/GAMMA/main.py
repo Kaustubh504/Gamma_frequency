@@ -64,8 +64,17 @@ if __name__ == "__main__":
                         help='Auto-tune skip_threshold from gen-1 rewards (default: on)')
     parser.add_argument('--threshold_percentile', type=float, default=25.0,
                         help='Reward percentile for auto skip_threshold (default: 25)')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for reproducibility (default: 42)')
 
     opt = parser.parse_args()
+
+    # Fix all random seeds for reproducibility
+    import random as _random
+    import numpy as _np
+    _random.seed(opt.seed)
+    _np.random.seed(opt.seed)
+    print(f"[GAMMA] Random seed set to {opt.seed}")
 
     history_path = '../../'
     m_file = f"../../data/model/{opt.model}.csv"

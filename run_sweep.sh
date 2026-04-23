@@ -21,7 +21,7 @@ OUTROOT="../../results"
 MODELS="resnet18 resnet50 vgg16 alexnet googlenet densenet squeezenet \
         wide_resnet50 resnext50_32x4d shufflenet_v2 mobilenet_v2 mnasnet \
         BERT_m ALBERT_m T5_m transformer dlrmRMC1_m ncf_m"
-TABLE_SIZES="500 1000 5000 10000"
+TABLE_SIZES="500 5000"
 EPSILONS="0.70 0.80 0.90"
 
 # Paper parameters
@@ -74,7 +74,7 @@ run_exp() {
         --outdir results/${MODEL}_${TAG}"
 
     if [ "$USE_QF" = "1" ]; then
-        CMD="$CMD --use_qfilter --q_table_size $TSIZE --epsilon_decay $EPS"
+        CMD="$CMD --use_qfilter --auto_threshold --q_table_size $TSIZE --epsilon_decay $EPS"
         if [ "$GUIDED" = "1" ]; then
             CMD="$CMD --q_guided_mutation"
         fi

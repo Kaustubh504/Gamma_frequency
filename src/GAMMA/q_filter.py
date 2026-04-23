@@ -70,16 +70,13 @@ class QFilter:
     def extract_state(self, indv):
         """
         Extract a hashable state from a genome individual.
-        State = sp_dim | loop_order | tile_bins
-        Tile sizes are log2-bucketed to keep state space tractable while
-        capturing memory access patterns that loop_order alone misses.
+        State = sp_dim | loop_order
         """
         if len(indv) < 7:
-            return "UNKNOWN|()|0,0,0,0,0,0"
+            return "UNKNOWN|()"
         sp_dim     = indv[0][0]
         loop_order = "".join(indv[i][0] for i in range(1, 7))
-        tile_bins  = ",".join(str(self._tile_bucket(indv[i][1])) for i in range(1, 7))
-        return f"{sp_dim}|{loop_order}|{tile_bins}"
+        return f"{sp_dim}|{loop_order}"
 
     # ------------------------------------------------------------------
     # Core Q-table operations

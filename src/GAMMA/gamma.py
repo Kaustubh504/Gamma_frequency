@@ -303,7 +303,7 @@ class GAMMA(object):
             # No Q-filter: fully random within this cluster's 7 genes
             return random.randint(0, 6) + offset
 
-        good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=0.0)
+        good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=self.q_filter.skip_threshold)
 
         # Extract this cluster's current structure
         seg = indv[offset: offset + 7]
@@ -325,7 +325,7 @@ class GAMMA(object):
                 # Q-guided guard: if this genome's structure is in the high-Q
                 # whitelist, skip the sp_dim swap — don't disrupt a winner.
                 if self.q_filter is not None:
-                    good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=0.0)
+                    good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=self.q_filter.skip_threshold)
                     indv = pop[idx]
                     cur_sp    = indv[0][0]
                     cur_order = tuple(indv[i][0] for i in range(1, 7))

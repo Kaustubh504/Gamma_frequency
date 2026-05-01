@@ -113,18 +113,36 @@ class QFilter:
         self._enforce_table_size(table)
 
     def _calibrate_threshold(self):
-        """Set skip_threshold to threshold_percentile of gen-1 observed rewards."""
-        if not self._reward_buffer:
-            print("[QFilter] Auto-threshold: no rewards collected, keeping default.")
-            self._threshold_calibrated = True
-            return
-        rewards = sorted(self._reward_buffer)
-        idx = max(0, int(len(rewards) * self.threshold_percentile / 100) - 1)
-        self.skip_threshold = rewards[idx]
+        """Set skip_threshold from the gen-1 Q-TABLE values (not raw rewards).
+
+        Raw rewards and Q-values are in different scales: after one Bellman
+        update starting from Q=0, Q ≈ alpha * reward (≈ 10× smaller).
+        Using raw rewards as threshold means every Q-value exceeds it → 0% skips.
+        Calibrating from actual Q-values ensures the bottom percentile of known
+        states falls below the threshold and gets skipped in future generations.
+        """
+        q_vals = list(self.q_table_eval.values())
+        if not q_vals:
+            # Fallback: approximate Q-values from buffered raw rewards
+            if not self._reward_buffer:
+                print("[QFilter] Auto-threshold: no data collected, keeping default.")
+                self._threshold_calibrated = True
+                return
+            q_vals = [self.alpha * r for r in self._reward_buffer]
+
+        q_vals_sorted = sorted(q_vals)
+        idx = max(0, int(len(q_vals_sorted) * self.threshold_percentile / 100) - 1)
+        self.skip_threshold = q_vals_sorted[idx]
         self._threshold_calibrated = True
+
+        raw_str = ""
+        if self._reward_buffer:
+            raw_str = (f" | raw rewards [{min(self._reward_buffer):.2e}, "
+                       f"{max(self._reward_buffer):.2e}]")
         print(f"[QFilter] Auto-threshold set: {self.skip_threshold:.3e} "
-              f"(p{self.threshold_percentile} of {len(rewards)} gen-1 rewards; "
-              f"range [{rewards[0]:.2e}, {rewards[-1]:.2e}])")
+              f"(p{self.threshold_percentile} of {len(q_vals_sorted)} gen-1 Q-values; "
+              f"Q-range [{q_vals_sorted[0]:.2e}, {q_vals_sorted[-1]:.2e}]"
+              f"{raw_str})")
 
     # ------------------------------------------------------------------
     # Decision: should we proceed with this operation?

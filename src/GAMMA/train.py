@@ -178,6 +178,8 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
 
     # Wire Q-guided mutation flag (only effective if q_filter is also enabled)
     env.q_guided_mutation = getattr(opt, 'q_guided_mutation', False)
+    env.max_skip_rate = getattr(opt, 'max_skip_rate', 0.50)
+    env.min_tile_size = getattr(opt, 'min_tile_size', 4)
     if env.q_guided_mutation and q_filter is not None:
         print("[QFilter] Q-guided mutation ENABLED — high-Q genome structures protected from sp_dim mutation")
     elif env.q_guided_mutation and q_filter is None:
@@ -185,8 +187,17 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
 
     constraints = {"area": opt.area_budget * 1e6}
 
+    # Enforce buffer capacity limits: reject mappings whose analytically-estimated
+    # working set exceeds L1 (per-PE) or L2 (global shared) hardware limits.
+    # Without this, MAESTRO22_noRScstr accepts giant-tile mappings (e.g. X=224,Y=224)
+    # and reports impossibly low cycle counts (11-12 cycles for VGG16).
+    ext_mem_cstr = None
+    if opt.l1_size > 0 and opt.l2_size > 0:
+        ext_mem_cstr = {"L2-soft": opt.l2_size, "L1-soft": opt.l1_size}
+
     for layer_idx, dimension in enumerate(model_defs):
-        env.reset_dimension(fitness=fitness, constraints=constraints, dimension=dimension)
+        env.reset_dimension(fitness=fitness, constraints=constraints, dimension=dimension,
+                            external_mem_cstr=ext_mem_cstr)
         env.reset_hw_parm(
             num_pe=opt.num_pe,
             l1_size=opt.l1_size,
@@ -211,7 +222,7 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
             best_sol_1st=None,
             init_pop=None,
             bias=None,
-            uni_base=True,
+            uni_base=False,   # random init: paper uses random initial population
             use_factor=False,
             use_pleteau=False
         )

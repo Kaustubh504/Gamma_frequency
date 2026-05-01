@@ -11,6 +11,7 @@ formatted Excel workbook with:
   Sheet 6 – Guided Mutation Effect   (guided vs non-guided Q-filter)
   Sheet 7 – Optimal Parameters       (best config per model)
   Sheet 8 – Q-Table Field Guide      (description of every Q-table field)
+  Sheet 9 – Optimal vs Baseline      (best QF run vs baseline per model, with cycle/CPU ratios)
 
 Run after run_sweep.sh completes:
     python generate_excel_report.py --results_dir ./results
@@ -34,6 +35,7 @@ GREEN_FILL = PatternFill("solid", start_color="E2EFDA")
 YELL_FILL  = PatternFill("solid", start_color="FFF2CC")
 ORG_FILL   = PatternFill("solid", start_color="FCE4D6")
 RED_FILL   = PatternFill("solid", start_color="FFB3B3")
+GREY_FILL  = PatternFill("solid", start_color="D9D9D9")
 HDR_FONT   = Font(name="Arial", bold=True, color="FFFFFF", size=10)
 BODY_FONT  = Font(name="Arial", size=9)
 BOLD_FONT  = Font(name="Arial", bold=True, size=9)
@@ -728,6 +730,156 @@ def write_qtable_guide(wb):
     return ws
 
 
+# ── Sheet 9: Optimal Q-Filter vs Baseline ────────────────────────────────────
+def write_optimal_comparison_sheet(wb, df):
+    ws = wb.create_sheet("Optimal vs Baseline")
+
+    ws.merge_cells("A1:J1")
+    c = ws["A1"]
+    c.value = "Optimal Q-Filter Run vs Baseline — Per-Model Summary"
+    c.font = Font(name="Arial", bold=True, size=13, color="1F4E79")
+    c.alignment = CENTER
+
+    ws.merge_cells("A2:J2")
+    c = ws["A2"]
+    c.value = (
+        "Optimal QF = Q-Filter config with highest reward per model (across all table sizes / ε-decay / guided). "
+        "CPU = User+Sys time (s).  Cycles Ratio = QF÷Base (≤1.0 means QF finds equal or fewer cycles).  "
+        "CPU Saved % = (Base−QF)÷Base×100  (positive = QF is faster)."
+    )
+    c.font = Font(name="Arial", italic=True, size=9)
+    c.alignment = LEFT
+
+    col_hdrs = [
+        "Model",
+        "Baseline\nCycles",
+        "Optimal QF\nCycles",
+        "Cycles Ratio\n(QF÷Base)",
+        "Baseline\nCPU (s)",
+        "Optimal QF\nCPU (s)",
+        "CPU Saved\n(s)",
+        "CPU\nSaved %",
+        "CPU Ratio\n(QF÷Base)",
+        "Best QF Config",
+    ]
+    for i, h in enumerate(col_hdrs, 1):
+        hdr(ws, 3, i, h)
+
+    def cpu_of(row):
+        u = row["user_time_s"]
+        s = row["sys_time_s"]
+        if pd.notna(u) and pd.notna(s):
+            return float(u) + float(s)
+        if pd.notna(u):
+            return float(u)
+        r = row["real_time_s"]
+        return float(r) if pd.notna(r) else None
+
+    models   = sorted(df["model"].unique())
+    row_idx  = 4
+    agg_rows = []
+
+    for model in models:
+        base_df = df[(df["model"] == model) & (df["mode"] == "Baseline")]
+        qf_df   = df[(df["model"] == model) & (df["mode"].isin(["Q-Filter", "Q-Filter+Guided"]))]
+
+        # Baseline: prefer row with fewest cycles
+        base_cycles = base_cpu = None
+        if not base_df.empty:
+            vb = base_df[base_df["best_runtime_cycles"].notna()]
+            br = vb.loc[vb["best_runtime_cycles"].idxmin()] if not vb.empty else base_df.iloc[0]
+            base_cycles = float(br["best_runtime_cycles"]) if pd.notna(br["best_runtime_cycles"]) else None
+            base_cpu    = cpu_of(br)
+
+        # Best QF: highest reward
+        qf_cycles = qf_cpu = None
+        config_label = "N/A"
+        if not qf_df.empty:
+            vq = qf_df[qf_df["best_reward"].notna()]
+            if not vq.empty:
+                best = vq.loc[vq["best_reward"].idxmax()]
+                qf_cycles = float(best["best_runtime_cycles"]) if pd.notna(best["best_runtime_cycles"]) else None
+                qf_cpu    = cpu_of(best)
+                t = best.get("q_table_size", "?")
+                e = best.get("epsilon_decay", "?")
+                m = best.get("mode", "?")
+                config_label = f"{m}, t={t}, ε={e}"
+
+        cycles_ratio  = (
+            (qf_cycles / base_cycles)
+            if (qf_cycles is not None and base_cycles is not None and base_cycles != 0)
+            else None
+        )
+        cpu_saved_s   = (
+            (base_cpu - qf_cpu)
+            if (base_cpu is not None and qf_cpu is not None)
+            else None
+        )
+        cpu_saved_pct = (
+            (cpu_saved_s / base_cpu * 100)
+            if (cpu_saved_s is not None and base_cpu)
+            else None
+        )
+        cpu_ratio     = (
+            (qf_cpu / base_cpu)
+            if (qf_cpu is not None and base_cpu is not None and base_cpu != 0)
+            else None
+        )
+
+        agg_rows.append((base_cycles, qf_cycles, cycles_ratio,
+                         base_cpu, qf_cpu, cpu_saved_s, cpu_saved_pct, cpu_ratio))
+
+        band = BAND_FILL if row_idx % 2 == 0 else None
+        cr_f = (GREEN_FILL if cycles_ratio is not None and cycles_ratio <= 1.02 else
+                YELL_FILL  if cycles_ratio is not None and cycles_ratio <= 1.10 else
+                RED_FILL   if cycles_ratio is not None else band)
+        cs_f = (GREEN_FILL if cpu_saved_pct is not None and cpu_saved_pct >= 10 else
+                YELL_FILL  if cpu_saved_pct is not None and cpu_saved_pct >= 0  else
+                RED_FILL   if cpu_saved_pct is not None else band)
+
+        vals = [model, base_cycles, qf_cycles, cycles_ratio,
+                base_cpu, qf_cpu, cpu_saved_s, cpu_saved_pct, cpu_ratio, config_label]
+        fmts = [None, "#,##0", "#,##0", "0.000",
+                "0.00", "0.00", "0.00", "0.0", "0.000", None]
+        clrs = [band, band, band, cr_f or band,
+                band, band, cs_f or band, cs_f or band, cs_f or band, band]
+        for c_idx, (v, fmt, f) in enumerate(zip(vals, fmts, clrs), 1):
+            cell(ws, row_idx, c_idx, v, fill=f, fmt=fmt)
+        row_idx += 1
+
+    # ── Average row ──────────────────────────────────────────────────────────
+    row_idx += 1  # blank spacer
+
+    def _avg(idx):
+        vs = [r[idx] for r in agg_rows if r[idx] is not None]
+        return sum(vs) / len(vs) if vs else None
+
+    a_bc, a_qc, a_cr = _avg(0), _avg(1), _avg(2)
+    a_bu, a_qu        = _avg(3), _avg(4)
+    a_ss, a_sp, a_ur  = _avg(5), _avg(6), _avg(7)
+
+    cr_f_avg = (GREEN_FILL if a_cr is not None and a_cr <= 1.02 else
+                YELL_FILL  if a_cr is not None and a_cr <= 1.10 else
+                RED_FILL   if a_cr is not None else GREY_FILL)
+    cs_f_avg = (GREEN_FILL if a_sp is not None and a_sp >= 10 else
+                YELL_FILL  if a_sp is not None and a_sp >= 0  else
+                RED_FILL   if a_sp is not None else GREY_FILL)
+
+    avg_vals = ["AVERAGE", a_bc, a_qc, a_cr, a_bu, a_qu, a_ss, a_sp, a_ur, ""]
+    avg_fmts = [None, "#,##0", "#,##0", "0.000", "0.00", "0.00", "0.00", "0.0", "0.000", None]
+    avg_clrs = [GREY_FILL, GREY_FILL, GREY_FILL, cr_f_avg,
+                GREY_FILL, GREY_FILL, cs_f_avg, cs_f_avg, cs_f_avg, GREY_FILL]
+    for c_idx, (v, fmt, f) in enumerate(zip(avg_vals, avg_fmts, avg_clrs), 1):
+        cell(ws, row_idx, c_idx, v, fill=f, fmt=fmt, font=BOLD_FONT)
+
+    set_col_widths(ws, [14, 16, 16, 15, 14, 14, 13, 11, 13, 38])
+    ws.freeze_panes = "A4"
+    ws.row_dimensions[1].height = 28
+    ws.row_dimensions[2].height = 50
+    ws.row_dimensions[3].height = 54
+    return ws
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser()
@@ -770,6 +922,7 @@ def main():
     write_guided_sheet(wb, df)
     write_optimal_sheet(wb, df)
     write_qtable_guide(wb)
+    write_optimal_comparison_sheet(wb, df)
 
     wb.save(args.out)
     print(f"[Excel] Saved → {args.out}")

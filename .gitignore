@@ -131,3 +131,17 @@ dmypy.json
 # others
 *.plt
 .idea/
+
+# GAMMA experiment outputs
+*.m
+*.xlsx
+*.xls
+results/
+outdir*/
+report/
+test_*/
+sweep_log.txt
+sweep_master.log
+src/GAMMA/*.csv
+.csv
+.~lock.*

@@ -63,6 +63,8 @@ class GAMMA(object):
         self.external_area_model = False
         self.q_filter = q_filter  # QFilter instance, or None to disable
         self.q_guided_mutation = False  # set True via set_q_guided_mutation()
+        self.max_skip_rate = 0.50   # cap: never skip more than 50% per generation
+        self.min_tile_size = 4      # floor: prevent degenerate near-zero-cycle mappings
 
     def reset_hw_parm(self, l1_size=None, l2_size=None, num_pe=None, NocBW=None, map_cstr=None, pe_limit=None,area_pebuf_only=None, external_area_model=None, offchipBW=None):
         if l1_size:
@@ -148,7 +150,15 @@ class GAMMA(object):
             if uni_base:
                 df = [["K", K], ["C", C], ["Y", Y],["X", X], ["R", R], ["S", S]]
             else:
-                df = [["K", random.randint(1, K)], ["C", random.randint(1, C)], ["Y", random.randint(1, Y)],["X", random.randint(1, X)], ["R", random.randint(1, R)], ["S", random.randint(1, S)]]
+                mt = self.min_tile_size
+                df = [
+                    ["K", max(min(mt, K), random.randint(1, K))],
+                    ["C", max(min(mt, C), random.randint(1, C))],
+                    ["Y", max(min(mt, Y), random.randint(1, Y))],
+                    ["X", max(min(mt, X), random.randint(1, X))],
+                    ["R", max(min(mt, R), random.randint(1, R))],
+                    ["S", max(min(mt, S), random.randint(1, S))],
+                ]
         idx = np.random.permutation(len(df))
         indv = [[sp, sp_sz]] + [df[i] for i in idx]
         return indv
@@ -410,11 +420,12 @@ class GAMMA(object):
                         pop[idx][pick] = [sp, sp_sz]
                     else:
                         d, d_sz = indv[pick]
+                        mt = self.min_tile_size
                         if pick > 7:
                             last_cluster_dict = self.scan_indv(indv[:-7])
                             thr = last_cluster_dict[d]
                             if self.use_factor is False:
-                                new_d_sz = random.randint(1, thr)
+                                new_d_sz = max(min(mt, thr), random.randint(1, thr))
                             else:
                                 choices = self.get_factors(thr)
                                 new_d_sz = np.random.choice(list(choices))
@@ -422,7 +433,7 @@ class GAMMA(object):
                         else:
                             if self.use_factor is False:
                                 thr = self.dimension_dict[d]
-                                new_d_sz = random.randint(1, thr)
+                                new_d_sz = max(min(mt, thr), random.randint(1, thr))
                             else:
                                 new_d_sz = np.random.choice(self.dimension_factors[d]["array"])
                         if is_finetune:
@@ -846,6 +857,18 @@ class GAMMA(object):
         # we always evaluate everything so the Q-table gets warm-started.
         if self.q_filter is not None and cur_gen >= 0:
             evaluate_mask = [self.q_filter.should_evaluate(indv) for indv in population]
+            # ── Skip rate cap: never skip more than max_skip_rate per generation ──
+            n_total = len(evaluate_mask)
+            n_skipped_proposed = sum(1 for m in evaluate_mask if not m)
+            max_allowed_skip = int(n_total * self.max_skip_rate)
+            if n_skipped_proposed > max_allowed_skip:
+                skip_indices = [i for i, m in enumerate(evaluate_mask) if not m]
+                n_to_force = n_skipped_proposed - max_allowed_skip
+                force_eval = random.sample(skip_indices, n_to_force)
+                for i in force_eval:
+                    evaluate_mask[i] = True
+                print(f"[QFilter] Skip cap: {n_skipped_proposed}→{n_skipped_proposed - n_to_force} skipped "
+                      f"(cap={self.max_skip_rate*100:.0f}%)")
         else:
             evaluate_mask = [True] * len(population)
 

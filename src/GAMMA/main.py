@@ -35,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--log_level', type=int, default=1)
     #
 # 🔥 Q-LEARNING PARAMETERS
-    parser.add_argument('--q_table_size', type=int, default=10000,
+    parser.add_argument('--q_table_size', type=int, default=2500,
                         help='Maximum size of the Q-table')
     parser.add_argument('--q_alpha', type=float, default=0.1,
                         help='Learning rate (alpha) for Q-learning')
@@ -66,6 +66,10 @@ if __name__ == "__main__":
                         help='Reward percentile for auto skip_threshold (default: 25)')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed for reproducibility (default: 42)')
+    parser.add_argument('--max_skip_rate', type=float, default=0.50,
+                        help='Max fraction of population that can be skipped per generation (default: 0.50)')
+    parser.add_argument('--min_tile_size', type=int, default=4,
+                        help='Minimum tile size for any loop dimension (default: 4, prevents degenerate mappings)')
 
     opt = parser.parse_args()
 

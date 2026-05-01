@@ -21,15 +21,15 @@ OUTROOT="../../results"
 MODELS="resnet18 resnet50 vgg16 alexnet googlenet densenet squeezenet \
         wide_resnet50 resnext50_32x4d shufflenet_v2 mobilenet_v2 mnasnet \
         BERT_m ALBERT_m T5_m transformer dlrmRMC1_m ncf_m"
-TABLE_SIZES="500 5000"
+TABLE_SIZES="2500"
 EPSILONS="0.70 0.80 0.90"
 
-# Paper parameters
+# Paper parameters (GAMMA ICCAD 2020 — edge platform)
 POP=200
 GEN=50
-NUM_PE=256
-L1=512
-L2=108000
+NUM_PE=168    # paper: 168 PEs (edge platform)
+L1=512        # paper: SL=512B (512 elements @ int8)
+L2=108000     # paper: SG=108KB ≈ 108000 elements
 
 mkdir -p "$OUTROOT"
 
@@ -70,6 +70,7 @@ run_exp() {
         --num_pe $NUM_PE \
         --l1_size $L1 \
         --l2_size $L2 \
+        --num_layer 0 \
         --seed 42 \
         --outdir results/${MODEL}_${TAG}"
 

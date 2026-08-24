@@ -33,44 +33,43 @@ if __name__ == "__main__":
 
     parser.add_argument('--fixedCluster', type=int, default=0)
     parser.add_argument('--log_level', type=int, default=1)
-    #
-# 🔥 Q-LEARNING PARAMETERS
-    parser.add_argument('--q_table_size', type=int, default=2500,
-                        help='Maximum size of the Q-table')
-    parser.add_argument('--q_alpha', type=float, default=0.1,
-                        help='Learning rate (alpha) for Q-learning')
-    parser.add_argument('--q_gamma', type=float, default=0.9,
-                        help='Discount factor (gamma) for Q-learning')
-    parser.add_argument('--epsilon_decay', type=float, default=0.90,
-                        help='Decay rate for epsilon-greedy exploration')
-    #
+    # ---- Evaluation filter -------------------------------------------------
+    parser.add_argument('--use_qfilter', action='store_true',
+                        help='Enable the learned evaluation filter')
+    parser.add_argument('--filter_mode', type=str, default='qlearn',
+                        choices=('qlearn', 'random'),
+                        help="'qlearn' = rank-rule filter driven by learned Q; "
+                             "'random' = CONTROL ARM that skips the same fraction "
+                             "uniformly at random. If qlearn cannot beat random, "
+                             "the Q-table is contributing nothing.")
+    parser.add_argument('--skip_frac', type=float, default=0.35,
+                        help='Fraction of the population to skip per generation. '
+                             'This is now a controlled input, not an emergent rate.')
+    parser.add_argument('--min_visits', type=int, default=3,
+                        help='Times a state must be seen before it may be skipped')
+    parser.add_argument('--alpha_up', type=float, default=0.4,
+                        help='EMA rate when a reward beats the current estimate')
+    parser.add_argument('--alpha_down', type=float, default=0.05,
+                        help='EMA rate when it falls below. alpha_up >> alpha_down '
+                             'makes Q track a HIGH QUANTILE (what selection uses) '
+                             'rather than the mean (what the old version learned).')
+    parser.add_argument('--epsilon_decay', type=float, default=0.90)
+    parser.add_argument('--epsilon_min', type=float, default=0.05)
+    parser.add_argument('--q_table_size', type=int, default=10000)
+    parser.add_argument('--good_q', type=float, default=0.60,
+                        help='Q above this marks a state known-good for guided mutation')
+    parser.add_argument('--q_guided_mutation', action='store_true',
+                        help='Protect high-Q genome structures from sp_dim mutation '
+                             '(requires --use_qfilter)')
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--min_tile_size', type=int, default=4,
+                        help='Minimum tile size for any loop dimension')
+
     parser.add_argument('--costmodel_cstr', type=str, default='maestro_cstr')
     parser.add_argument('--area_budget', type=float, default=-1)
     parser.add_argument('--pe_limit', type=int, default=-1)
 
     # 🔥 NEW FLAG
-    parser.add_argument('--use_qfilter', action='store_true',
-                        help='Enable Q-learning filter')
-
-    parser.add_argument('--q_guided_mutation', action='store_true',
-                        help='Enable Q-value guided mutation point selection '
-                             '(requires --use_qfilter). High-Q genome structures '
-                             'are protected from sp_dim mutations; only tile sizes '
-                             'are mutated for known-good loop orders.')
-
-    parser.add_argument('--epsilon_min', type=float, default=0.10,
-                        help='Minimum epsilon for Q-filter exploration (default: 0.10)')
-    parser.add_argument('--auto_threshold', action='store_true', default=True,
-                        help='Auto-tune skip_threshold from gen-1 rewards (default: on)')
-    parser.add_argument('--threshold_percentile', type=float, default=25.0,
-                        help='Reward percentile for auto skip_threshold (default: 25)')
-    parser.add_argument('--seed', type=int, default=42,
-                        help='Random seed for reproducibility (default: 42)')
-    parser.add_argument('--max_skip_rate', type=float, default=0.50,
-                        help='Max fraction of population that can be skipped per generation (default: 0.50)')
-    parser.add_argument('--min_tile_size', type=int, default=4,
-                        help='Minimum tile size for any loop dimension (default: 4, prevents degenerate mappings)')
-
     opt = parser.parse_args()
 
     # Fix all random seeds for reproducibility

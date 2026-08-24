@@ -63,7 +63,6 @@ class GAMMA(object):
         self.external_area_model = False
         self.q_filter = q_filter  # QFilter instance, or None to disable
         self.q_guided_mutation = False  # set True via set_q_guided_mutation()
-        self.max_skip_rate = 0.50   # cap: never skip more than 50% per generation
         self.min_tile_size = 4      # floor: prevent degenerate near-zero-cycle mappings
 
     def reset_hw_parm(self, l1_size=None, l2_size=None, num_pe=None, NocBW=None, map_cstr=None, pe_limit=None,area_pebuf_only=None, external_area_model=None, offchipBW=None):
@@ -313,7 +312,7 @@ class GAMMA(object):
             # No Q-filter: fully random within this cluster's 7 genes
             return random.randint(0, 6) + offset
 
-        good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=self.q_filter.skip_threshold)
+        good_orders = self.q_filter.get_good_loop_orders(top_n=30)
 
         # Extract this cluster's current structure
         seg = indv[offset: offset + 7]
@@ -335,7 +334,7 @@ class GAMMA(object):
                 # Q-guided guard: if this genome's structure is in the high-Q
                 # whitelist, skip the sp_dim swap — don't disrupt a winner.
                 if self.q_filter is not None:
-                    good_orders = self.q_filter.get_good_loop_orders(top_n=30, threshold=self.q_filter.skip_threshold)
+                    good_orders = self.q_filter.get_good_loop_orders(top_n=30)
                     indv = pop[idx]
                     cur_sp    = indv[0][0]
                     cur_order = tuple(indv[i][0] for i in range(1, 7))
@@ -846,7 +845,7 @@ class GAMMA(object):
         gen_best_idx = np.argmax(fitness[:,0])
         return fitness, gen_best_idx
 
-    def evaluate(self, pool, population, cur_gen=-1):
+    def evaluate(self, pool, population, cur_gen=-1, num_elite=0):
         gen_best = -float("Inf")
         gen_best_activity = None
         gen_best_idx = 0
@@ -855,20 +854,21 @@ class GAMMA(object):
         # ── Q-Filter: decide which genomes to actually send to MAESTRO ──────
         # During the very first generation (reinit_pop call, cur_gen=-1)
         # we always evaluate everything so the Q-table gets warm-started.
+        # The filter now decides for the WHOLE population at once, because the
+        # rule is a rank rule (skip the worst skip_frac by Q). That makes the
+        # skip rate a controlled input; the old per-genome threshold test
+        # saturated against its own safety cap from gen 25 onward, at which
+        # point random.sample -- not the Q-table -- was choosing what to skip.
+        #
+        # The leading `num_elite` individuals are the elites carried over from
+        # last generation (run(): population = elite + population). They must
+        # NEVER be skipped -- elitism relies on the best-known fitness being
+        # unable to regress between generations. Handing an elite an imputed
+        # fitness silently demotes the true best genome out of the parent pool.
         if self.q_filter is not None and cur_gen >= 0:
-            evaluate_mask = [self.q_filter.should_evaluate(indv) for indv in population]
-            # ── Skip rate cap: never skip more than max_skip_rate per generation ──
-            n_total = len(evaluate_mask)
-            n_skipped_proposed = sum(1 for m in evaluate_mask if not m)
-            max_allowed_skip = int(n_total * self.max_skip_rate)
-            if n_skipped_proposed > max_allowed_skip:
-                skip_indices = [i for i, m in enumerate(evaluate_mask) if not m]
-                n_to_force = n_skipped_proposed - max_allowed_skip
-                force_eval = random.sample(skip_indices, n_to_force)
-                for i in force_eval:
-                    evaluate_mask[i] = True
-                print(f"[QFilter] Skip cap: {n_skipped_proposed}→{n_skipped_proposed - n_to_force} skipped "
-                      f"(cap={self.max_skip_rate*100:.0f}%)")
+            n_prot = min(num_elite, len(population))
+            rest = self.q_filter.select_evaluate_mask(population[n_prot:], table_type="eval")
+            evaluate_mask = [True] * n_prot + rest
         else:
             evaluate_mask = [True] * len(population)
 
@@ -893,9 +893,49 @@ class GAMMA(object):
         self._q_n_skipped   = n_skipped
         # ────────────────────────────────────────────────────────────────────
 
+        # ── Reward shaping: rank-normalize this generation's REAL evaluations
+        # into [0,1]. Raw MAESTRO cycle counts are savagely heavy-tailed
+        # (mean = 166x median), which is what made the previous mean-EMA
+        # estimator meaningless. Ranks are scale-free and bounded.
+        q_norm = {}
+        if self.q_filter is not None and indices_to_eval:
+            raw = []
+            for idx_e in indices_to_eval:
+                r_e, _ = reward_activ_list[idx_e]
+                invalid = r_e is None or any(np.array(r_e) >= 0)
+                raw.append(float("-inf") if invalid else float(r_e[0]))
+            finite = [v for v in raw if v != float("-inf")]
+            worst = min(finite) if finite else 0.0
+            raw = [worst if v == float("-inf") else v for v in raw]
+            norm = self.q_filter.rank_normalize(raw)
+            q_norm = {idx_e: norm[k] for k, idx_e in enumerate(indices_to_eval)}
+
+        # ── Imputation for skipped genomes. A skip means "we did not spend a
+        # MAESTRO call", NOT "this genome is the worst possible". The old code
+        # gave skips -Inf, which culled the lineage outright and is the direct
+        # cause of the solution-quality collapse. Give them the median of this
+        # generation's real evaluations instead: neither favoured nor executed,
+        # and still eligible to be a parent so offspring can be evaluated later.
+        _valid_rewards = []
+        for idx_e in indices_to_eval:
+            r_e, _ = reward_activ_list[idx_e]
+            if r_e is not None and not any(np.array(r_e) >= 0):
+                _valid_rewards.append(r_e)
+        if _valid_rewards:
+            imputed_reward = [float(np.median([r_e[k] for r_e in _valid_rewards]))
+                              for k in range(len(_valid_rewards[0]))]
+        else:
+            imputed_reward = None
+
         for i in range(len(population)):
             reward, activity_count = reward_activ_list[i]
-            if reward is None or any(np.array(reward) >= 0):
+            was_evaluated = evaluate_mask[i]
+            if not was_evaluated:
+                # Skipped: impute. Do NOT count as invalid -- doing so used to
+                # starve num_parents as well as killing the genome.
+                reward = (list(imputed_reward) if imputed_reward is not None
+                          else [float("-Inf") for _ in range(len(self.best_reward))])
+            elif reward is None or any(np.array(reward) >= 0):
                 reward = [float("-Inf") for _ in range(len(self.best_reward))]
                 count_non_valid += 1
             # elif stage_idx > 0:
@@ -954,22 +994,24 @@ class GAMMA(object):
             # ── Q-Filter update: only update for genomes that were actually
             # evaluated (evaluate_mask[i] == True). Skipped genomes were
             # assigned -Inf synthetically and must NOT pollute the Q-table.
-            if self.q_filter is not None and evaluate_mask[i]:
-                q_reward = reward[0] if reward[0] != float("-Inf") else -1e6
-                
+            if self.q_filter is not None and was_evaluated:
+                r_norm = q_norm.get(i, 0.0)   # already in [0,1]
+
                 # 1. Update the primary Eval Phase table
                 state = self.q_filter.extract_state(indv)
-                self.q_filter.update(state, q_reward)
-                
-                # 2. Backpropagate the reward to the Crossover, Growth, or Aging tables
+                self.q_filter.update(state, r_norm)
+
+                # 2. Backpropagate to the Crossover / Growth / Aging tables
                 indv_str = str(indv)
                 if hasattr(self, 'generation_lineage') and indv_str in self.generation_lineage:
                     lineage = self.generation_lineage[indv_str]
-                    self.q_filter.update(lineage['parent'], q_reward, table_type=lineage['type'])
+                    self.q_filter.update(lineage['parent'], r_norm, table_type=lineage['type'])
             # ────────────────────────────────────────────────────────────────
             # ────────────────────────────────────────────────────────────────
 
-            if gen_best < judging_reward:
+            # Guard: an imputed (skipped) genome must never be reported as the
+            # best solution -- its fitness was never measured.
+            if was_evaluated and gen_best < judging_reward:
                 gen_best = judging_reward
                 gen_best_activity = activity_count
                 gen_best_idx = i
@@ -1085,7 +1127,8 @@ class GAMMA(object):
             # population = elite + population + pop_inj
             self.fitness = np.concatenate((self.elite_fitness, self.fitness))
             # self.fitness = np.concatenate((self.elite_fitness, self.fitness, inj_fitness))
-            chkpt = self.evaluate(pool=pool, population=population, cur_gen=g)
+            chkpt = self.evaluate(pool=pool, population=population, cur_gen=g,
+                                  num_elite=len(elite))
 
             # ── Q-Filter: decay epsilon, log stats for this generation ───────
             if self.q_filter is not None:

@@ -118,45 +118,32 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
     fitness = [opt.fitness1, opt.fitness2]
     dimension = model_defs[0]
 
-    # ── Q-Filter toggle ───────────────────────────────────────────────────
-    # Pass --use_qfilter to enable. Without it, GAMMA runs identically to
-    # the original — no skipping, no Q-table. Use baseline mode first to
-    # record best_fitness, then compare against --use_qfilter runs.
+    # ── Evaluation filter ─────────────────────────────────────────────────
+    # Without --use_qfilter, GAMMA runs identically to the original: every
+    # genome goes to MAESTRO. With it, a rank rule skips the worst
+    # --skip_frac of each generation by learned Q. Use --filter_mode random
+    # as the control arm: same skip rate, no learning.
     q_table_path = os.path.join(os.path.dirname(chkpt_file), "q_table.json")
 
-    # if getattr(opt, 'use_qfilter', False):
-    #     q_filter = QFilter(
-    #         alpha=0.1,          # learning rate — how fast Q-values update
-    #         epsilon=1.0,        # start by evaluating everything (full explore)
-    #         epsilon_decay=0.9,  # decay per generation (gen5→ε≈0.59, gen15→ε≈0.21)
-    #         epsilon_min=0.10,   # always keep 10% random exploration
-    #         # skip_threshold: Q(s,1) must exceed this to evaluate during exploit.
-    #         # fitness1 for latency = -runtime → always negative for valid genomes.
-    #         # -1e17 means: only skip states that MAESTRO consistently rejects
-    #         # (those get Q pulled toward -1e6 per rejection).
-    #         # After your first run, check genome_all.csv → look at typical
-    #         # fitness1 values → tighten this threshold to skip more aggressively.
-    #         skip_threshold=-500_000,
-    #         q_table_path=q_table_path,  # saves q_table.json for warm-starting
-    #     )
-    #     print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
     if getattr(opt, 'use_qfilter', False):
         q_filter = QFilter(
-            alpha=opt.q_alpha,
-            gamma_param=opt.q_gamma,
-            table_size=opt.q_table_size,
+            alpha_up=opt.alpha_up,
+            alpha_down=opt.alpha_down,
+            skip_frac=opt.skip_frac,
+            min_visits=opt.min_visits,
             epsilon=1.0,
             epsilon_decay=opt.epsilon_decay,
             epsilon_min=opt.epsilon_min,
-            skip_threshold=-500_000,       # overridden by auto_threshold if enabled
+            table_size=opt.q_table_size,
             q_table_path=q_table_path,
-            auto_threshold=getattr(opt, 'auto_threshold', True),
-            threshold_percentile=getattr(opt, 'threshold_percentile', 25),
+            mode=opt.filter_mode,
+            good_q=opt.good_q,
         )
-        print(f"[QFilter] ENABLED  — Q-table: {q_table_path}")
+        print(f"[QFilter] ENABLED  mode={opt.filter_mode}  skip_frac={opt.skip_frac} "
+              f"-- Q-table: {q_table_path}")
     else:
         q_filter = None
-        print("[QFilter] DISABLED — baseline mode (all genomes evaluated)")
+        print("[QFilter] DISABLED - baseline mode (all genomes evaluated)")
     # ─────────────────────────────────────────────────────────────────────
 
     env = gamma.GAMMA(
@@ -178,7 +165,6 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
 
     # Wire Q-guided mutation flag (only effective if q_filter is also enabled)
     env.q_guided_mutation = getattr(opt, 'q_guided_mutation', False)
-    env.max_skip_rate = getattr(opt, 'max_skip_rate', 0.50)
     env.min_tile_size = getattr(opt, 'min_tile_size', 4)
     if env.q_guided_mutation and q_filter is not None:
         print("[QFilter] Q-guided mutation ENABLED — high-Q genome structures protected from sp_dim mutation")
@@ -195,6 +181,7 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
     if opt.l1_size > 0 and opt.l2_size > 0:
         ext_mem_cstr = {"L2-soft": opt.l2_size, "L1-soft": opt.l1_size}
 
+    all_layer_results = []
     for layer_idx, dimension in enumerate(model_defs):
         env.reset_dimension(fitness=fitness, constraints=constraints, dimension=dimension,
                             external_mem_cstr=ext_mem_cstr)
@@ -261,16 +248,33 @@ def train_model(model_defs, input_arg, map_cstr=None, chkpt_file='./chkpt'):
             "L1_size": best_l1_size,
             "L2_size": best_l2_size
         }
-        columns = ["runtime", "area", "pe_area_ratio", "PE", "L1_size", "L2_size",
-                   "PE_area", "L1_area", "L2_area", "best_sol"]
-        np_array = np.array(
-            [chkpt_save[t] for t in columns[:-1]] + [f'{chkpt_save["best_sol"]}']
-        ).reshape(1, -1)
-        df = pd.DataFrame(np_array, columns=columns)
-        df.to_csv(chkpt_file[:-4] + ".csv")
+        # Accumulate one row PER LAYER. The previous code wrote result_c.csv
+        # inside the loop with a fixed filename, so a multi-layer (full-model)
+        # run silently kept only the LAST layer's result.
+        chkpt_save["layer"] = layer_idx + 1
+        all_layer_results.append(chkpt_save)
+
+        columns = ["layer", "runtime", "area", "pe_area_ratio", "PE", "L1_size",
+                   "L2_size", "PE_area", "L1_area", "L2_area", "best_sol"]
+        rows = [[r[c] for c in columns[:-1]] + [f'{r["best_sol"]}']
+                for r in all_layer_results]
+        df = pd.DataFrame(rows, columns=columns)
+        df.to_csv(chkpt_file[:-4] + ".csv", index=False)
 
         with open(chkpt_file, "wb") as fd:
-            pickle.dump(chkpt_save, fd)
+            pickle.dump(all_layer_results, fd)
+
+
+    # ── Whole-model summary ────────────────────────────────────────────────
+    # A layer-sequential accelerator runs layers one after another, so the
+    # model-level cost is the SUM over layers, not the last layer's value.
+    if all_layer_results:
+        total_cycles = sum(float(r["runtime"]) for r in all_layer_results)
+        max_area = max(float(r["area"]) for r in all_layer_results)
+        print("=" * 66)
+        print(f"[GAMMA] MODEL TOTAL  layers={len(all_layer_results)}  "
+              f"total_runtime={total_cycles:.0f}(cycles)  peak_area={max_area/1e6:.3f}(mm2)")
+        print("=" * 66)
 
 
 def get_cstr_name(mapping_cstr):

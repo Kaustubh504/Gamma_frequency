@@ -1,52 +1,86 @@
 """
 q_filter.py
-============
-Q-Learning filter for GAMMA's genetic algorithm.
+===========
+Value-based evaluation filter for GAMMA's genetic algorithm.
 
-Maintains separate Q-tables for evaluation, crossover, growth, and aging phases.
-Uses dynamic table sizing (OrderedDict as LRU cache) and parameterized alpha/gamma.
+WHY THIS WAS REWRITTEN
+----------------------
+The previous mean-EMA version (see git history at d4607dd) did not work,
+for reasons that were measured rather than guessed:
+
+  1. It learned E[fitness | state] via a mean EMA, but GA selection consumes
+     max[fitness | state]. Measured on alexnet: rho(Q, state mean) = +0.913
+     but rho(Q, state best) = +0.370. 98 of the top-100 genomes lived in
+     states the filter condemned.
+  2. Reward was the raw MAESTRO cycle count, whose distribution is savagely
+     heavy-tailed (mean = 166x median). One catastrophic mapping sank a
+     state permanently.
+  3. skip_threshold was calibrated at the end of generation 1, when every
+     Q had had exactly ONE update from zero (Q = alpha*r, a 10x compressed
+     scale). As the EMA converged toward r, essentially every state drifted
+     below it: 25% below at gen 1 -> 96.6% below at the end.
+  4. The gate therefore saturated against its own max_skip_rate cap, and
+     from gen 25 onward `random.sample` -- not the Q-table -- chose which
+     genomes to spare.
+
+DESIGN OF THE REPLACEMENT
+-------------------------
+  * REWARD is the within-generation rank of a genome's fitness, in [0,1]
+    (0 = worst this generation, 1 = best). Scale-free, comparable across
+    models and generations, and immune to the heavy tail.
+  * Q(s) is an EXPECTILE (asymmetric EMA) tracking a HIGH QUANTILE of the
+    state's reward distribution -- "how good is this state when it does
+    well" -- which is the statistic selection actually uses. With
+    alpha_up=0.5 / alpha_down=0.02 it converges to roughly the 96th
+    expectile.
+  * SKIPPING is a per-generation RANK rule: skip the worst `skip_frac` of
+    the population by Q. The skip rate is a controlled input, not an
+    emergent property of a frozen threshold, so it cannot saturate.
+  * A state must be seen `min_visits` times before it is eligible to be
+    skipped; unseen states start optimistic (Q = 1.0). Optimism under
+    uncertainty, so the filter never culls something it knows nothing about.
+  * mode='random' is the null-hypothesis CONTROL ARM: skip the same
+    fraction uniformly at random, ignoring Q entirely. If the learned arm
+    cannot beat this, the Q-table is contributing nothing.
 """
 
 import random
 import json
-import math
 import os
 from collections import OrderedDict
+
+TABLES = ("eval", "cross", "growth", "aging")
+
 
 class QFilter:
     def __init__(
         self,
-        alpha=0.1,              # learning rate
-        gamma_param=0.9,        # Discount factor (gamma)
-        table_size=10000,       # Maximum size of each Q-table
-        epsilon=1.0,            # initial exploration rate (1.0 = explore everything at first)
-        epsilon_decay=0.9,      # multiply epsilon by this after each generation
-        epsilon_min=0.10,       # floor for epsilon (never go fully greedy)
-        skip_threshold=0.0,     # Q(s,1) must exceed this to evaluate/proceed
-        q_table_path=None,      # optional path to save/load Q-table across runs
-        auto_threshold=True,    # auto-tune skip_threshold from gen-1 rewards
-        threshold_percentile=25,# skip genomes below this reward percentile
+        alpha_up=0.4,        # EMA rate when reward BEATS current estimate
+        alpha_down=0.05,     # EMA rate when it falls below (asymmetric => high quantile)
+        skip_frac=0.35,      # fraction of the population to skip per generation
+        min_visits=3,        # visits before a state may be skipped
+        epsilon=1.0,         # initial exploration rate
+        epsilon_decay=0.9,
+        epsilon_min=0.05,
+        table_size=10000,
+        q_table_path=None,
+        mode="qlearn",       # "qlearn" | "random" (control arm)
+        good_q=0.60,         # Q above this = "known-good" (guided mutation)
     ):
-        self.alpha = alpha
-        self.gamma_param = gamma_param
-        self.table_size = table_size
+        self.alpha_up = alpha_up
+        self.alpha_down = alpha_down
+        self.skip_frac = skip_frac
+        self.min_visits = min_visits
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
-        self.skip_threshold = skip_threshold
+        self.table_size = table_size
         self.q_table_path = q_table_path
-        self.auto_threshold = auto_threshold
-        self.threshold_percentile = threshold_percentile
-        self._reward_buffer = []       # collects gen-1 rewards for calibration
-        self._threshold_calibrated = False
+        self.mode = mode
+        self.good_q = good_q
 
-        # Separate tables for different phases using OrderedDict for sizing
-        self.q_table_eval = OrderedDict()
-        self.q_table_cross = OrderedDict()
-        self.q_table_growth = OrderedDict()
-        self.q_table_aging = OrderedDict()
-
-        # Stats per generation for logging
+        self.q = {t: OrderedDict() for t in TABLES}      # state -> Q in [0,1]
+        self.n = {t: OrderedDict() for t in TABLES}      # state -> visit count
         self.gen_stats = []
 
         if q_table_path and os.path.exists(q_table_path):
@@ -54,233 +88,203 @@ class QFilter:
             print(f"[QFilter] Loaded Q-tables from {q_table_path}")
 
     # ------------------------------------------------------------------
-    # State extraction
+    # State
     # ------------------------------------------------------------------
     @staticmethod
-    def _tile_bucket(size):
-        """Log2-bin a tile size into 8 buckets (0=1, 1=2-3, 2=4-7, ..., 7=128+)."""
-        try:
-            s = int(size)
-        except (TypeError, ValueError):
-            return 0
-        if s <= 1:
-            return 0
-        return min(int(math.log2(s)), 7)
-
-    def extract_state(self, indv):
-        """
-        Extract a hashable state from a genome individual.
-        State = sp_dim | loop_order
-        """
+    def extract_state(indv):
+        """State = spatial dim | loop order of the first cluster, e.g. 'K|KCYRXS'."""
         if len(indv) < 7:
             return "UNKNOWN|()"
-        sp_dim     = indv[0][0]
-        loop_order = "".join(indv[i][0] for i in range(1, 7))
-        return f"{sp_dim}|{loop_order}"
+        return f"{indv[0][0]}|" + "".join(indv[i][0] for i in range(1, 7))
 
     # ------------------------------------------------------------------
-    # Core Q-table operations
+    # Reward shaping
     # ------------------------------------------------------------------
-    def _enforce_table_size(self, table):
-        """Maintains dynamic table size by popping oldest items if exceeded."""
-        while len(table) > self.table_size:
-            table.popitem(last=False)
+    @staticmethod
+    def rank_normalize(values):
+        """Map raw fitness values to within-generation ranks in [0,1].
 
-    def get_q_value(self, state_key, table_type="eval"):
-        """Return Q(s, action=1) for a specific phase."""
-        table = getattr(self, f"q_table_{table_type}")
-        return table.get(state_key, 0.0)
-
-    def update(self, state_key, reward, next_state_key=None, table_type="eval"):
+        Ties share the mean rank. A single element maps to 1.0. This is what
+        makes the filter scale-free: it never sees a cycle count, only
+        'where did this land among its peers this generation'.
         """
-        Updates the specified Q-table using the Q-learning equation.
-        Q(s,a) = Q(s,a) + alpha * (R + gamma * max(Q(s',a)) - Q(s,a))
-        """
-        # Buffer valid rewards from gen-1 eval phase for auto-threshold calibration
-        if (self.auto_threshold and not self._threshold_calibrated
-                and table_type == "eval"
-                and reward is not None and reward > -1e15):
-            self._reward_buffer.append(reward)
-
-        table = getattr(self, f"q_table_{table_type}")
-        old_q = table.get(state_key, 0.0)
-        next_q = table.get(next_state_key, 0.0) if next_state_key else 0.0
-        new_q = old_q + self.alpha * (reward + (self.gamma_param * next_q) - old_q)
-
-        if state_key in table:
-            del table[state_key]
-        table[state_key] = new_q
-        self._enforce_table_size(table)
-
-    def _calibrate_threshold(self):
-        """Set skip_threshold from the gen-1 Q-TABLE values (not raw rewards).
-
-        Raw rewards and Q-values are in different scales: after one Bellman
-        update starting from Q=0, Q ≈ alpha * reward (≈ 10× smaller).
-        Using raw rewards as threshold means every Q-value exceeds it → 0% skips.
-        Calibrating from actual Q-values ensures the bottom percentile of known
-        states falls below the threshold and gets skipped in future generations.
-        """
-        q_vals = list(self.q_table_eval.values())
-        if not q_vals:
-            # Fallback: approximate Q-values from buffered raw rewards
-            if not self._reward_buffer:
-                print("[QFilter] Auto-threshold: no data collected, keeping default.")
-                self._threshold_calibrated = True
-                return
-            q_vals = [self.alpha * r for r in self._reward_buffer]
-
-        q_vals_sorted = sorted(q_vals)
-        idx = max(0, int(len(q_vals_sorted) * self.threshold_percentile / 100) - 1)
-        self.skip_threshold = q_vals_sorted[idx]
-        self._threshold_calibrated = True
-
-        raw_str = ""
-        if self._reward_buffer:
-            raw_str = (f" | raw rewards [{min(self._reward_buffer):.2e}, "
-                       f"{max(self._reward_buffer):.2e}]")
-        print(f"[QFilter] Auto-threshold set: {self.skip_threshold:.3e} "
-              f"(p{self.threshold_percentile} of {len(q_vals_sorted)} gen-1 Q-values; "
-              f"Q-range [{q_vals_sorted[0]:.2e}, {q_vals_sorted[-1]:.2e}]"
-              f"{raw_str})")
+        n = len(values)
+        if n == 0:
+            return []
+        if n == 1:
+            return [1.0]
+        order = sorted(range(n), key=lambda i: values[i])
+        out = [0.0] * n
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and values[order[j + 1]] == values[order[i]]:
+                j += 1
+            avg = (i + j) / 2.0 / (n - 1)
+            for k in range(i, j + 1):
+                out[order[k]] = avg
+            i = j + 1
+        return out
 
     # ------------------------------------------------------------------
-    # Decision: should we proceed with this operation?
+    # Q maintenance
     # ------------------------------------------------------------------
+    def _trim(self, table_type):
+        q, n = self.q[table_type], self.n[table_type]
+        while len(q) > self.table_size:
+            k, _ = q.popitem(last=False)
+            n.pop(k, None)
+
+    def get_q(self, state, table_type="eval"):
+        """Optimistic default: an unseen state is assumed best-possible."""
+        return self.q[table_type].get(state, 1.0)
+
+    def visits(self, state, table_type="eval"):
+        return self.n[table_type].get(state, 0)
+
+    def update(self, state, reward_norm, table_type="eval"):
+        """Expectile update toward a high quantile of the state's rewards.
+
+        reward_norm must already be rank-normalized into [0,1].
+        """
+        q = self.q[table_type]
+        if state not in q:
+            # FIRST VISIT: seed with the observed reward, do NOT ease down from
+            # the optimistic 1.0. Easing down makes Q a function of visit COUNT
+            # rather than quality -- with alpha_down=0.02 a state seen 3 times
+            # sits at ~0.98 while one seen 300 times sits at ~0.52, so the
+            # filter skips whatever is familiar. That is precisely the failure
+            # mode this rewrite exists to remove.
+            new = reward_norm
+        else:
+            cur = q[state]
+            delta = reward_norm - cur
+            alpha = self.alpha_up if delta > 0 else self.alpha_down
+            new = cur + alpha * delta
+
+        if state in q:
+            del q[state]
+        q[state] = new
+        self.n[table_type][state] = self.n[table_type].get(state, 0) + 1
+        self._trim(table_type)
+
+    # ------------------------------------------------------------------
+    # The decision, made for the whole population at once
+    # ------------------------------------------------------------------
+    def select_evaluate_mask(self, population, table_type="eval"):
+        """Return [bool] -- True = send to MAESTRO, False = skip.
+
+        Rank rule: among genomes eligible to be skipped, skip the
+        `skip_frac` with the lowest Q. Skip rate is therefore a controlled
+        parameter and cannot saturate against a safety cap.
+        """
+        n_pop = len(population)
+        mask = [True] * n_pop
+        n_skip = int(n_pop * self.skip_frac)
+        if n_skip <= 0:
+            return mask
+
+        # Exploration and the min-visits guard both protect a genome from skipping.
+        eligible = []
+        for i, indv in enumerate(population):
+            if random.random() < self.epsilon:
+                continue                                   # explore: always evaluate
+            s = self.extract_state(indv)
+            if self.visits(s, table_type) < self.min_visits:
+                continue                                   # too little evidence to cull
+            eligible.append(i)
+
+        if not eligible:
+            return mask
+
+        if self.mode == "random":
+            victims = random.sample(eligible, min(n_skip, len(eligible)))
+        else:
+            eligible.sort(key=lambda i: self.get_q(self.extract_state(population[i]), table_type))
+            victims = eligible[:n_skip]
+
+        for i in victims:
+            mask[i] = False
+        return mask
+
     def should_proceed(self, indv, table_type="eval"):
-        """
-        ε-greedy decision for a candidate genome for a specific phase.
-        Returns: True to execute the phase, False to skip.
-        """
+        """Scalar gate for the crossover / growth / aging phases."""
+        if self.mode == "random":
+            return random.random() >= self.skip_frac
         if random.random() < self.epsilon:
-            return True   # explore
-
-        state_key = self.extract_state(indv)
-        q_val = self.get_q_value(state_key, table_type)
-        return q_val > self.skip_threshold   # exploit Q-table
-
-    def should_evaluate(self, indv):
-        """Alias for backward compatibility with the main evaluation loop."""
-        return self.should_proceed(indv, table_type="eval")
+            return True
+        s = self.extract_state(indv)
+        if self.visits(s, table_type) < self.min_visits:
+            return True
+        return self.get_q(s, table_type) >= self.skip_frac
 
     # ------------------------------------------------------------------
-    # After each generation: decay epsilon, log stats
+    # Bookkeeping
     # ------------------------------------------------------------------
     def end_of_generation(self, gen, n_evaluated, n_skipped):
-        """Decays epsilon, auto-calibrates threshold after gen 1, logs stats."""
-        # Calibrate skip_threshold from gen-1 rewards before filter starts exploiting
-        if self.auto_threshold and not self._threshold_calibrated and gen == 0:
-            self._calibrate_threshold()
-
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
-        stat = {
-            "gen":        gen + 1,
-            "evaluated":  n_evaluated,
-            "skipped":    n_skipped,
-            "epsilon":    round(self.epsilon, 4),
-            "q_states":   len(self.q_table_eval), 
-        }
-        self.gen_stats.append(stat)
-        print(
-            f"[QFilter] Gen {gen+1}: evaluated={n_evaluated}, skipped={n_skipped}, "
-            f"ε={self.epsilon:.3f}, Eval Q-states={len(self.q_table_eval)}"
-        )
+        self.gen_stats.append({
+            "gen": gen + 1, "evaluated": n_evaluated, "skipped": n_skipped,
+            "epsilon": round(self.epsilon, 4), "q_states": len(self.q["eval"]),
+        })
+        print(f"[QFilter] Gen {gen+1}: evaluated={n_evaluated}, skipped={n_skipped}, "
+              f"eps={self.epsilon:.3f}, states={len(self.q['eval'])}")
+
+    def get_good_loop_orders(self, table_type="eval", top_n=30, threshold=None):
+        """(sp_dim, loop_order) pairs for high-Q states -- used by guided mutation.
+
+        Q now lives in [0,1], so `threshold` is a scale-free quantile-like
+        cut (default self.good_q) rather than the old raw-cycle number.
+        """
+        thr = self.good_q if threshold is None else threshold
+        q = self.q[table_type]
+        good = set()
+        for state, val in sorted(q.items(), key=lambda x: x[1], reverse=True)[:top_n]:
+            if val < thr or self.visits(state, table_type) < self.min_visits:
+                continue
+            parts = state.split("|")
+            if len(parts) >= 2 and len(parts[1]) == 6:
+                good.add((parts[0], tuple(parts[1])))
+        return good
 
     # ------------------------------------------------------------------
-    # Save / load Q-table across runs (warm-starting)
+    # Persistence
     # ------------------------------------------------------------------
     def save(self, path=None):
         path = path or self.q_table_path
         if path is None:
             return
-        
-        # Combine all tables for saving into one JSON
-        save_data = {
-            "eval": list(self.q_table_eval.items()),
-            "cross": list(self.q_table_cross.items()),
-            "growth": list(self.q_table_growth.items()),
-            "aging": list(self.q_table_aging.items())
-        }
-        
         with open(path, "w") as f:
-            json.dump(save_data, f, indent=2)
-        print(f"[QFilter] Q-tables saved → {path} (Eval states: {len(self.q_table_eval)})")
+            json.dump({t: {"q": list(self.q[t].items()), "n": list(self.n[t].items())}
+                       for t in TABLES}, f, indent=2)
+        print(f"[QFilter] Q-tables saved -> {path} (eval states: {len(self.q['eval'])})")
 
     def load(self, path):
-        with open(path, "r") as f:
-            save_data = json.load(f)
-            
-        # Handle old format (single dict) vs new format (dict of dicts) gracefully
-        if "eval" in save_data:
-            self.q_table_eval = OrderedDict(save_data.get("eval", []))
-            self.q_table_cross = OrderedDict(save_data.get("cross", []))
-            self.q_table_growth = OrderedDict(save_data.get("growth", []))
-            self.q_table_aging = OrderedDict(save_data.get("aging", []))
-        else:
-            # Legacy load for older JSON files
-            self.q_table_eval = OrderedDict(save_data.items())
+        with open(path) as f:
+            data = json.load(f)
+        for t in TABLES:
+            blob = data.get(t, {})
+            if isinstance(blob, dict) and "q" in blob:
+                self.q[t] = OrderedDict(blob.get("q", []))
+                self.n[t] = OrderedDict(blob.get("n", []))
 
-    # ------------------------------------------------------------------
-    # Q-value whitelist helpers (used by guided mutation in gamma.py)
-    # ------------------------------------------------------------------
-    def get_good_states(self, table_type="eval", top_n=20):
-        """
-        Returns top_n highest Q-value state keys from the specified table.
-        State format: "sp_dim|loop_order"  e.g. "K|KCYRXS"
-        Returns list of (state_key, q_value) tuples sorted descending.
-        """
-        table = getattr(self, f"q_table_{table_type}")
-        if not table:
-            return []
-        sorted_states = sorted(table.items(), key=lambda x: x[1], reverse=True)
-        return sorted_states[:top_n]
-
-    def get_good_loop_orders(self, table_type="eval", top_n=30, threshold=0.0):
-        """
-        Returns a set of (sp_dim, loop_order_tuple) pairs from the top Q-states.
-        Used by gamma.py to identify which genome structures to protect from
-        structural mutation (sp_dim swaps). Only returns states with Q > threshold.
-
-        Example return value:
-            {("K", ("K","C","Y","R","X","S")), ("C", ("C","K","X","Y","R","S")), ...}
-        """
-        good = set()
-        for state_key, q_val in self.get_good_states(table_type, top_n):
-            if q_val <= threshold:
-                continue
-            parts = state_key.split("|")
-            if len(parts) >= 2 and len(parts[1]) == 6:
-                sp_dim = parts[0]
-                loop_order = tuple(parts[1])   # e.g. ('K','C','Y','R','X','S')
-                good.add((sp_dim, loop_order))
-        return good
-
-    # ------------------------------------------------------------------
-    # Summary after full run
-    # ------------------------------------------------------------------
     def print_summary(self):
         if not self.gen_stats:
             return
-        total_eval  = sum(s["evaluated"] for s in self.gen_stats)
-        total_skip  = sum(s["skipped"]   for s in self.gen_stats)
-        total       = total_eval + total_skip
-        skip_pct    = (total_skip / total * 100) if total > 0 else 0
-        print("\n" + "="*60)
-        print("[QFilter] Run Summary")
-        print(f"  Total candidates generated : {total}")
-        print(f"  Total MAESTRO calls        : {total_eval}")
-        print(f"  Total skipped by Q-filter  : {total_skip}  ({skip_pct:.1f}%)")
-        print(f"  Final ε                    : {self.epsilon:.4f}")
-        print(f"  Eval States Known          : {len(self.q_table_eval)}")
-        print(f"  Crossover States Known     : {len(self.q_table_cross)}")
-        print(f"  Growth States Known        : {len(self.q_table_growth)}")
-        print(f"  Aging States Known         : {len(self.q_table_aging)}")
-        print("="*60)
-        
-        # Top 5 best states in Eval table
-        if self.q_table_eval:
-            sorted_states = sorted(self.q_table_eval.items(), key=lambda x: x[1], reverse=True)
-            print("  Top 5 genome states by Q-value (Eval Phase):")
-            for k, v in sorted_states[:5]:
-                print(f"    {k:30s}  Q={v:.2f}")
-        print("="*60 + "\n")
+        ev = sum(s["evaluated"] for s in self.gen_stats)
+        sk = sum(s["skipped"] for s in self.gen_stats)
+        tot = ev + sk
+        print("\n" + "=" * 60)
+        print(f"[QFilter] Run Summary  (mode={self.mode})")
+        print(f"  Total candidates generated : {tot}")
+        print(f"  Total MAESTRO calls        : {ev}")
+        print(f"  Total skipped              : {sk}  ({100*sk/tot if tot else 0:.1f}%)")
+        print(f"  Target skip_frac           : {self.skip_frac:.2f}")
+        print(f"  Final epsilon              : {self.epsilon:.4f}")
+        for t in TABLES:
+            print(f"  {t:<6s} states known         : {len(self.q[t])}")
+        if self.q["eval"]:
+            print("  Top 5 states by Q (eval):")
+            for k, v in sorted(self.q["eval"].items(), key=lambda x: x[1], reverse=True)[:5]:
+                print(f"    {k:20s} Q={v:.3f}  n={self.visits(k)}")
+        print("=" * 60 + "\n")

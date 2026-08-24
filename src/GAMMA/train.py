@@ -87,9 +87,17 @@ def save_genome_csv(genome_seq_fitness, genome_all_records, outdir=".", layer_id
         reverse=True
     )
     if best_records:
-        keys = best_records[0].keys()
+        # Union the keys across ALL records, not just the first. With a variable
+        # level of parallelism (paper system S3 allows 2 or 3 levels) genomes
+        # have different field sets, and taking only best_records[0].keys()
+        # crashes on the first record that carries L3_* fields.
+        keys, seen = [], set()
+        for r in best_records:
+            for k in r:
+                if k not in seen:
+                    keys.append(k); seen.add(k)
         with open(genome_best_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=keys)
+            writer = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
             writer.writeheader()
             for r in best_records:
                 writer.writerow(r)

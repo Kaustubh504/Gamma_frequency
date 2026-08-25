@@ -6,7 +6,7 @@ from collections import defaultdict
 D = os.path.join(os.path.dirname(__file__), "results")
 runs = defaultdict(dict)
 for f in glob.glob(os.path.join(D, "*.log")):
-    m = re.match(r"(.+)_s(\d+)_(base|qlearn|random)\.log$", os.path.basename(f))
+    m = re.match(r"(.+?)_(S[123])_(latency|energy)_s(\d+)_(base|qlearn|random)\.log$", os.path.basename(f))
     if not m: continue
     model, seed, arm = m.group(1), int(m.group(2)), m.group(3)
     t = open(f, errors="ignore").read()

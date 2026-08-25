@@ -1415,6 +1415,30 @@ class GAMMA(object):
     def judge(self):
         runtime, throughput, energy, area, l1_size, l2_size, mac, power, num_pe = self.observation
 
+        # ---- Physical-plausibility floor -------------------------------------
+        # A mapping cannot retire more than one MAC per PE per cycle, so any
+        # result with runtime < total_MACs / num_PE is a cost-model artefact,
+        # not a real speedup. MAESTRO reports such numbers for degenerate
+        # tilings, and because the GA minimises cycles it drives STRAIGHT into
+        # them: measured on resnet18 layer 1, 34% of genomes are physically
+        # valid but the search returns one 198x below the floor.
+        #
+        # This affects the unfiltered baseline exactly as much as the filtered
+        # arms -- it is a property of the objective, not of the Q-filter -- so
+        # without this check a baseline-vs-filter quality comparison is really
+        # a race to the bottom of a broken metric.
+        if getattr(self, 'enforce_physical_floor', True):
+            try:
+                macs_total = 1.0
+                for d in self.dimension[:6]:
+                    macs_total *= float(d)
+                pe_eff = float(num_pe) if num_pe and float(num_pe) > 0 else 1.0
+                if float(runtime) > 0 and float(runtime) < macs_total / pe_eff:
+                    return None, None
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
+        # ----------------------------------------------------------------------
+
         def get_objective(objective):
             values = []
             for term in objective:

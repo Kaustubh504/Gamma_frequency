@@ -108,9 +108,27 @@ class GAMMA(object):
         self.dimension_dict = {"K": self.dimension[0], "C": self.dimension[1], "Y": self.dimension[2], "X": self.dimension[3], "R": self.dimension[4],"S": self.dimension[5], "T": self.dimension[6]}
         self.dimension_factors = self.get_dimension_factors(self.dimension_dict)
 
+    def _sample_num_levels(self):
+        """Levels of parallelism for a fresh genome.
+
+        The paper's Table 3 defines systems by a RANGE: S2 is "level of
+        parallelism 1 or 2", S3 is "2 or 3". Building every initial genome at
+        exactly slevel_min meant the range was only ever reached later via
+        born_cluster -- and under the edge memory constraint a 1-level mapping
+        is always invalid, so with slevel_min=1 the whole population came back
+        invalid, num_parents hit 0, and run() spun forever in its
+        `while self.num_parents < 1: reinit_pop()` restart loop.
+
+        When slevel_min == slevel_max this consumes no randomness, so runs at
+        the default 2..2 stay bit-for-bit reproducible.
+        """
+        if self.slevel_min >= self.slevel_max:
+            return self.slevel_min
+        return random.randint(self.slevel_min, self.slevel_max)
+
     def create_genome_with_cstr(self):
         indv = self.create_genome()
-        for _ in range(self.slevel_min - 1):
+        for _ in range(self._sample_num_levels() - 1):
             indv = self.born_cluster_ind(indv)
         self.map_cstr.create_from_constraint(indv, self.fixedCluster, self.dimension_dict)
         return indv
@@ -241,7 +259,7 @@ class GAMMA(object):
         if self.map_cstr:
             return self.create_genome_with_cstr()
         ind = self.create_genome()
-        for _ in range(self.slevel_min-1):
+        for _ in range(self._sample_num_levels() - 1):
             ind = self.born_cluster_ind(ind)
         if bias:
             ind = self.biased_init(ind, bias=bias)
@@ -749,7 +767,10 @@ class GAMMA(object):
         if num_all_unit is None:
             num_all_unit = len(population)
         for idx in range(num_all_unit):
-            for level in range(len(population[0]) // 7):
+            # Use THIS genome's level count, not population[0]'s. With a level
+            # range (paper S2 = 1 or 2, S3 = 2 or 3) genomes differ in length,
+            # and indexing a 1-level genome with a 2-level stride overruns it.
+            for level in range(len(population[idx]) // 7):
                 for i in range(1, 7):
                     population[idx][i + level * 7][1] = 1
 

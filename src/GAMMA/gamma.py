@@ -159,7 +159,15 @@ class GAMMA(object):
                 else:
                     sp_sz = random.randint(1, lastcluster_sz)
         else:
-            sp_sz = random.randint(1, self.num_pe if self.num_pe > 0 else self.pe_limit)
+            # Paper Table 3 system S1 ("fixed aspect ratio") pins sp_sz to the
+            # number of 2D-accelerator rows. fixedCluster used to be honoured
+            # only inside the uni_base branch, but train.py runs with
+            # uni_base=False, so --fixedCluster was silently inert and S1 was
+            # unreachable: fixedCluster 12 and 14 both produced sp_sz=144.
+            if self.fixedCluster > 0:
+                sp_sz = self.fixedCluster
+            else:
+                sp_sz = random.randint(1, self.num_pe if self.num_pe > 0 else self.pe_limit)
         if self.use_factor and not uni_base:
             df = [["K", np.random.choice(self.dimension_factors["K"]["array"])], ["C",np.random.choice(self.dimension_factors["C"]["array"])], ["Y", np.random.choice(self.dimension_factors["Y"]["array"])],
                   ["X", np.random.choice(self.dimension_factors["X"]["array"])], ["R",np.random.choice(self.dimension_factors["R"]["array"])], ["S",np.random.choice(self.dimension_factors["S"]["array"])]]
